@@ -1,0 +1,136 @@
+
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+forward procedure printSolution
+
+ declarations
+ 	S = 1..2  							! soci
+  	M = 1..3							! mansioni
+  	G = 1..7							! giorni
+	
+  	gain: array(S, M, G) of real    	! differenza tra costo e incasso legati all'esecuzione della mansione m da parte del socio s nella giornata g
+	costChange: array(M, M) of real		! costo legato all'assegnamento di due mansioni differenti m1 e m2, in due giorni consecutivi
+	incomeIncr: array(M) of real		! incassi giornaliero aggiuntivi nel caso in cui tutti i soci svolgano la mansione m
+	
+  	x: array(S, M, G) of mpvar   		! 1 se il socio s svolge la mansione m nel giorno g
+                                      	! 0 altrimenti
+  	
+  	y: array(S, M, M, 2..7) of mpvar    ! 1 se il socio s svolge la mansione m2 nel giorno g, dopo aver eseguito la mansione m1 nel giorno precedente (g-1)
+                                      	! 0 altrimenti
+                                      	
+	z: array(M, G) of mpvar      		! 1 se tutti i soci svolgono la mansione m nel giorno g
+                                      	! 0 altrimenti		
+                                      	
+    !variabili decisionali non necessarie ma utili per semplificare la formulazione del modello
+    gainG: array(G) of mpvar			! guadagno (differenza incassi-costi) ottenuto nel giorno g
+    
+    vinc: linctr
+end-declarations
+ 	!   G1, G2, G3, G4, G5, G6, G7
+gain::[ 30, 10, 30, 20, 40, 70, 80,		!S1-M1
+		20, 20, 50, 10, 30, 60, 40,		!S1-M2
+		-30, -30, -30, -30, -30, -30, -30,	!S1-M3
+		30, 25, 40, 50, 40, 60, 90,		!S2-M1
+		45, 30, 20, 30, 20, 30, 110,		!S2-M2
+		-30, -30, -30, -30, -30, -30, -30]	!S2-M3
+
+
+costChange ::[ 0, 60, 20,
+			   60, 0, 20,
+			   20, 20, 0]
+
+
+incomeIncr ::[ 30, 50, 30]
+
+
+
+forall(m in M, g in G) do
+	z(m, g) is_binary
+	forall(s in S) do
+		x(s, m, g) is_binary
+		forall(m2 in M | g > 1) do
+			y(s, m, m2, g) is_binary
+		end-do
+	end-do	
+end-do	
+
+forall(g in G) gainG(g) is_free
+
+
+! ogni socio esegue una ed una sola mansione ogni giorno
+forall(s in S, g in G) sum(m in M) x(s, m, g) = 1 	
+
+! il socio s può eseguire una e una sola mansione m2 nel giorno g, dopo aver eseguito la mansione m2 nel giorno g-1
+forall(s in S, g in 2..7) do
+	sum(m1 in M, m2 in M) y(s, m1, m2, g) = 1
+	forall(m1 in M, m2 in M) do
+		y(s, m1, m2, g) <= x(s, m1, g-1)
+		y(s, m1, m2, g) <= x(s, m2, g)
+	end-do
+end-do
+
+! z(m,g)=1 se e solo se nel giorno g tutti i soci eseguono la mansione m
+forall(s in S, m in M, g in G) z(m, g) <= x(s, m, g)
+forall(m in M, g in G) z(m, g) >= sum(s in S) (x(s, m, g)) -1
+
+! alla mansione 3 devono essere dedicati almeno 4 giorni-uomo lavorativi
+vinc := sum(s in S, g in G) x(s, 3, g) >= 4
+
+! durante la settimana ogni socio deve essere assegnato almeno una volta ad ogni mansione
+forall(s in S, m in M) sum(g in G) x(s, m, g) >=1
+
+!guadagno giornaliero
+forall(g in G) gainG(g) = sum(s in S, m in M) (x(s,m,g)*gain(s,m,g)) + sum(m in M)(z(m,g)*incomeIncr(m)) - sum(s in S, m1 in M, m2 in M | g >1)(y(s,m1,m2,g)*costChange(m1,m2))
+
+writeln("Begin running model \n\n")
+
+totGain:= sum(g in G) gainG(g)
+
+maximize(totGain)
+
+printSolution
+
+forall(g in G | g <7) do 
+   gainG(g+1) - gainG(g) <= 70
+   gainG(g+1) - gainG(g) >= -70
+end-do
+
+sethidden(vinc,TRUE)
+
+maximize(totGain)
+
+printSolution
+
+writeln("\n\nEnd running model")
+
+
+procedure printSolution
+	writeln("guadagno totale: " + getsol(totGain))
+	
+	write("G: \t")
+	forall(g in G) do
+		write("" + g + "\t")
+	end-do
+	write("\n")
+	forall(s in S) do
+		write("S" + s + "\t")
+		forall(g in G) do
+			forall(m in M) do
+				write(if(getsol(x(s,m,g))=1, ""+ m + "\t", ""))
+			end-do
+		end-do
+		write("\n")
+	end-do
+		
+	write("Gg\t")
+	forall(g in G) do
+		write(""+ round(getsol(gainG(g)))+ "\t")
+	end-do
+	write("\n")	
+		
+end-procedure
+
+
+
+end-model

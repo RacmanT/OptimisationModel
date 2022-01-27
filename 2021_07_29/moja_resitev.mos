@@ -1,0 +1,79 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  uses "random"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    SQUADRE = 1..10
+    PARTITE_TOTALI = 45
+    GIORNATE = 1..18  ! 45/5 (partite andata) * 2 (considerando anche il ritorno)
+    
+    GIRONE_ANDATA = 1..8
+    GIRONE_RITORNO = 9..18
+    
+    PRIMA_FASCIA: array(SQUADRE) of integer
+    
+    !la squadra s1 (casa) affronta s2 (trasferta) nella giornata g
+    x:array(SQUADRE, SQUADRE, GIORNATE) of mpvar
+    
+    !le due squadre sono entrambe di prima fascia
+    y:array(SQUADRE, SQUADRE) of mpvar
+    
+  end-declarations
+
+  writeln("Begin running model")
+  
+  forall(s1,s2 in SQUADRE, g in GIORNATE) x(s1, s2, g) is_binary
+  forall(s1,s2 in SQUADRE) y(s1, s2) is_binary
+  
+  ! se una squadra gioca in casa l'altra gioca in trasferta e una squadra non puo giocare conm se stessa
+  forall(s1,s2 in SQUADRE, g in GIORNATE) x(s1, s2, g) = x(s2,s1,g)
+  forall(s in SQUADRE, g in GIORNATE) x(s, s, g) = 0
+
+  ! ogni squadra gioca una volta in casa contro un altra squadra
+  forall(s1,s2 in SQUADRE)sum(g in GIORNATE) x(s1,s2,g) = 1
+  !forall(s1,s2 in SQUADRE)sum(g in GIORNATE) x(s2,s1,g) = 1
+
+  !assimetria girone
+  forall(s1,s2 in SQUADRE, g in GIORNATE | g in GIRONE_ANDATA) x(s1,s2,g) +  x(s2,s1,g+9) <= 1 
+  
+  forall(s1,s2 in SQUADRE) do
+    sum(g in GIORNATE | g in GIRONE_RITORNO) (g * x(s1,s2,g) - (g-9)*x(s2,s1,g)) >= 5
+  end-do
+  
+  ! ogni giornata ho 5 partite
+  forall(g in GIORNATE) sum(s1,s2 in SQUADRE) x(s1,s2,g) = 5
+  
+  ! ogni squadra deve giocarne 1 a giornata
+  forall(s1 in SQUADRE, g in GIORNATE) sum(s2 in SQUADRE) (x(s1,s2,g) + x(s2,s1,g)) = 1
+  
+  ! 2 partite consecutive in casa e 2 in trasferta
+  forall(s1 in SQUADRE, g in GIORNATE | g+2 in GIORNATE) do
+    sum(s2 in SQUADRE) (x(s1,s2,g) + x(s1,s2,g+1) + x(s1,s2,g+2)) <= 2
+    sum(s2 in SQUADRE) (x(s2,s1,g) + x(s2,s1,g+1) + x(s2,s1,g+2)) <= 2
+  end-do
+  
+  
+  ! nella stessa giornata Bologna (Fortitudo) e Bologna (Virtus) non possono giocare in casa
+  !stesso vale per le squadre di Milano
+  forall(s1, s2 in SQUADRE, g in GIORNATE) do
+    x(1,s1,g) + x(2,s2,g) <= 1
+    x(4,s1,g) + x(5,s2,g) <= 1
+  end-do
+  
+  ! non posso avere piu di un big match per giornata 
+  forall(g in GIORNATE) sum(s1,s2 in SQUADRE | s1 > s2) x(s1,s2,g) * (PRIMA_FASCIA(s1)*PRIMA_FASCIA(s2)) <= 1
+  
+
+  minimise(1)
+  
+    forall(s1, s2 in SQUADRE, g in GIORNATE) do
+    if(getsol(x(s1, s2, g)) > 0) then
+      write("x(",s1, ", ", s2, ", ", g, ")  ")
+    end-if
+  end-do
+
+  
+  writeln("End running model")
+end-model

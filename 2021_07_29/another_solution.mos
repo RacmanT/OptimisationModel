@@ -1,0 +1,32 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+
+    NUMERO_GIRONI   = 2
+    NUMERO_SQUADRE  = 10
+    NUMERO_GIORNATE = 18
+
+  end-parameters
+
+  declarations
+
+    GIRONI   = 1..NUMERO_GIRONI
+    SQUADRE  = 1..NUMERO_SQUADRE
+    GIORNATE = 1..NUMERO_GIORNATE
+
+    NOMI_SQUADRE : array(SQUADRE) of string
+
+    ! la squadra è di prima fascia
+    x: array(SQUADRE) of mpvar
+
+  end-declarations
+
+  forall(s in SQUADRE) x(s) is_binary
+
+  NOMI_SQUADRE :: ["Fortitudo Bologna", "Virtus Bologna", "Brindisi", "Cantù", "Milano", "Sassari", "Trento", "Treviso", "Trieste", "Venezia"]
+
+
+
+end-model

@@ -1,0 +1,79 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_SERVIZI = 3
+    NUMERO_SCENARI = 4
+    NUMERO_CONSULENTI = 5
+  end-parameters
+
+  declarations
+
+    SERVIZI = 1..NUMERO_SERVIZI
+    SCENARI = 1..NUMERO_SCENARI
+    CONSULENTI = 1..NUMERO_CONSULENTI
+
+    A : array(SERVIZI, SCENARI) of integer
+    B : array(SERVIZI, CONSULENTI) of integer
+    PENALITA          : array(SERVIZI) of integer
+    COSTO_CONSULENTE  : array(CONSULENTI) of integer
+    DURATA_CONSULENTE : array(CONSULENTI) of integer
+
+    ! se un consulente viene assunto
+    x: array(CONSULENTI) of mpvar
+
+    ! indica il numero di servizi gestiti dal consulente c
+    y: array(CONSULENTI, SERVIZI, SCENARI) of mpvar
+
+    ! costo dello scenario s
+    costo_scenario : array(SCENARI) of mpvar
+
+    ! costo fisso dato dall'assunzione di un consulente
+    costo_fisso: mpvar
+
+    ! costo dato dalle richieste non gestite
+    costo_richieste_non_gestite: array(SCENARI) of mpvar
+
+    ! costo scenario peggiore
+    costo_peggiore : mpvar
+
+  end-declarations
+
+  forall(c in CONSULENTI) x(c) is_binary
+  forall(c in CONSULENTI, sr in SERVIZI, sc in SCENARI) y(c, sr, sc) is_integer
+
+  A :: [16, 14, 14, 12,
+        14, 18, 13, 14,
+        11, 10, 12, 15]
+
+  B :: [35, 40, 30, 50, 35,
+        45, 40, 35, 40, 35,
+        60, 45, 55, 50, 40]
+
+  PENALITA :: [150, 100, 200]
+  COSTO_CONSULENTE  :: [500, 600, 400, 550, 700]
+  DURATA_CONSULENTE :: [300, 360, 300, 360, 420]
+
+  ! ogni consulente non può dedicare più tempo di quello che ha a disposizione
+  forall(sc in SCENARI, c in CONSULENTI) sum(sr in SERVIZI) y(c, sr, sc) * B(sr, c) <= DURATA_CONSULENTE(c) * x(c)
+
+
+  costo_fisso = sum(c in CONSULENTI) x(c) * COSTO_CONSULENTE(c)
+  
+  forall(sc in SCENARI) do
+    costo_richieste_non_gestite(sc) = sum(sr in SERVIZI) (A(sr, sc) - sum(c in CONSULENTI) y(c, sr, sc)) * PENALITA(sr)
+  end-do
+  
+  forall(sc in SCENARI, sr in SERVIZI) A(sr, sc) - sum(c in CONSULENTI) y(c, sr, sc) >= 0
+
+  forall(sc in SCENARI) costo_scenario(sc) = costo_fisso + costo_richieste_non_gestite(sc)
+
+
+  forall(sc in SCENARI) costo_peggiore >= costo_scenario(sc)
+
+  minimise(costo_peggiore)
+  writeln("Costo nello scenario peggiore ", getobjval)
+
+
+end-model

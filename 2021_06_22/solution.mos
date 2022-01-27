@@ -1,0 +1,157 @@
+model EsameCrognaletti
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  forward procedure print_res(name: string)
+
+  declarations
+
+    NUMBER_OF_PLAYERS = 10 ! Numero dei giocatori presenti
+    nR = 3  ! Numero reparti di gioco
+    nS = 3  ! Numero squadre da formare
+
+    ! Liste
+    GIOC  = 1..NUMBER_OF_PLAYERS
+    REP   = 1..nR
+    SQUAD = 1..nS
+
+    VALORE: array(REP,  GIOC) of integer   ! Valore nel reparto r per il giocatore g
+    AFF:    array(GIOC, GIOC) of integer   ! Affinità di g1 con g2 (e viceversa)
+
+    MIN_REP_VAL = 10  ! Minimo valore per reparto per ogni squadra
+    PENALITA    = -5  ! Penalità da assegnare se la squadra è composta da un numero di giocatori diverso da N_OPT
+    N_OPT       = 3   ! Numero ottimale di giocatori
+
+    d: array(GIOC,SQUAD) of mpvar       ! d(g,s) = 1 se il giocatore g è nella squadra s, 0 altrimenti
+    c: array(GIOC,GIOC,SQUAD) of mpvar  ! c(g1,g2,s) = 1 se g1 e g2 sono compagni di squadra nella squadra s, 0 altrimenti
+    p: array(SQUAD) of mpvar            ! p(s) = 1 se la squadra s deve essere penalizzata, 0 altrimenti
+    segno: array(SQUAD) of mpvar        ! segno del valore di N_GIOC(s) - N_OPT: segno(s) = 1 se >0, 0 altrimenti
+    v_min: mpvar                        ! valore minimo tra tutte le squadre
+    v_max: mpvar                        ! valore massimo tra tutte le squadre
+
+    VAL_SQ: array(SQUAD) of linctr      !valore complessivo della squadra, comprese affinità e penalità
+    N_GIOC: array(GIOC) of linctr       !numero di componenti per ogni squadra
+
+    ! vincolo che decide se tutti devono giocare o meno
+    OGNUNO_DEVE_GIOCARE : array(GIOC) of linctr
+    OBJ:linctr
+  end-declarations
+
+  VALORE::[7,2,10,7,4,3,2,0,0,2,
+           9,6,3,4,10,7,7,2,7,2,
+           1,5,1,6,4,2,7,9,7,10]
+
+  AFF::[0,5,0,0,-7,0,0,0,2,0,
+        0,0,-4,0,0,0,0,6,0,0,
+        0,0,0,1,0,0,0,0,0,4,
+        0,0,0,0,3,0,-6,0,0,0,
+        0,0,0,0,0,4,0,0,0,0,
+        0,0,0,0,0,0,-2,0,-4,0,
+        0,0,0,0,0,0,0,6,0,0,
+        0,0,0,0,0,0,0,0,0,-7,
+        0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0]
+
+  ! Tutte le variabili decisionali sono binarie
+  forall(g in GIOC, s in SQUAD) d(g,s) is_binary
+  forall(g1,g2 in GIOC, s in SQUAD) c(g1,g2,s) is_binary
+  forall(s in SQUAD) do
+    p(s) is_binary
+    segno(s) is_binary
+  end-do
+
+  forall(g in GIOC) OGNUNO_DEVE_GIOCARE(g) := sum(s in SQUAD) d(g,s) = 1          ! Ogni giocatore deve essere assegnato ad una ed una sola squadra
+  forall(r in REP,s in SQUAD) sum(g in GIOC) VALORE(r,g)*d(g,s) >= MIN_REP_VAL    ! Per ogni squadra e reparto, deve esserci un minimo valore
+
+  ! Due giocatori g1 e g2 sono compagni di squadra in s <=> (g1 gioca in s) e (g2 gioca in s). Serve quindi l'AND logico
+  forall(s in SQUAD, g1,g2 in GIOC) do
+
+    ! Un vincolo è strettamente necessario solo se l'afffinità dei giocatori è non-nulla, infatti solo in quei casi la variabile può dare un contributo al valore della squadra
+    if AFF(g1,g2) <> 0 then
+      ! I seguenti vincoli applicano l'AND logico: c(g1,g2,s) = d(g1,s)*d(g2,s)
+      c(g1,g2,s) <= d(g1,s)
+      c(g1,g2,s) <= d(g2,s)
+      c(g1,g2,s) >= d(g1,s) + d(g2,s) -1
+
+    ! In tutti gli altri casi, siccome le variabili sono avanzate sono inutili e non compaiono nel modello, le fisso ad un valore convenzionale (=0)
+    else
+      c(g1,g2,s) = 0
+    end-if
+
+  end-do
+
+  ! Definizione di valore della squadra e numero di gioccatori
+  forall(s in SQUAD) do
+    VAL_SQ(s) := sum(r in REP,g in GIOC) VALORE(r,g)*d(g,s) + sum(g1,g2 in GIOC | AFF(g1,g2) <> 0 ) AFF(g1,g2)*c(g1,g2,s) + p(s)*PENALITA ! Sommo solo sulle variabili g1,g2 utili
+    N_GIOC(s) := sum(g in GIOC) d(g,s)
+  end-do
+
+  ! Vincoli che leghino p(s) alla penalità effettiva:
+
+  ! Prima parte dell'implicazione: |N_GIOC(s)-N_OPT| <= |G|*p(s). p(s) deve essere non nullo (=1) se |N_GIOC(s)-N_OPT| =|= 0
+  forall(s in SQUAD) do
+    N_GIOC(s) <= N_OPT + NUMBER_OF_PLAYERS * p(s)    ! N_GIOC(s)-N_OPT <= |G|*p(s)
+    N_GIOC(s) >= N_OPT - NUMBER_OF_PLAYERS * p(s)    ! N_GIOC(s)-N_OPT >= -|G|*p(s)
+  end-do
+
+  ! Questo non toglie che p(s) possa essere =1 anche se |N_GIOC(s)-N_OPT| = 0, e non è necessario che una soluzione con p(s) minore venga
+  ! preferita dell'ottimizzatore, dato che per minimizzare la differenza, potrebbe essere vantaggioso penalizzare una squadra forte anche
+  ! se |N_GIOC(s)-N_OPT| = 0 al fine di equilibrarle. Perciò è necessaria la seconda implicazione:
+
+  ! |N_GIOC(s)-N_OPT| >= p(s) . Questo è ottenuto mediante una variabile segno, che selezioni quali delle due alternative (inconciliabili) debba essere soddisfatta
+  forall(s in SQUAD) do
+    N_GIOC(s) >= N_OPT + p(s) + (segno(s)-1) * NUMBER_OF_PLAYERS   ! N_GIOC(s)-N_OPT >= p(s)  se N_GIOC(s)-N_OPT >= 0, altrimenti è sempre valido
+    N_GIOC(s) <= N_OPT - p(s) + segno(s) * NUMBER_OF_PLAYERS       ! N_GIOC(s)-N_OPT <= -p(s) se N_GIOC(s)-N_OPT <= 0, altrimenti è sempre valido
+  end-do
+
+  ! Vincolo che selezioni il minor e maggior valore tra le squadre. Si basa sul fatto che per costruzione v_max >= v_min, e l'ottimizzazione "spinge" v_min e v_max a combaciare
+  ! perciò essi raggiongeranno il valore del limite più stringente, che nei due casi è il minimo e massimo raggiunto da VAL_SQ(s)
+  forall(s in SQUAD) do
+    VAL_SQ(s) >= v_min
+    VAL_SQ(s) <= v_max
+  end-do
+
+  ! Minimizzo la differenza tra le due squadre migliore vs peggiore
+  OBJ := v_max - v_min
+
+  minimise(OBJ)
+  print_res("\nCASO 1: TUTTI DEVONO GIOCARE IN UNA SQUADRA")
+
+  forall(g in GIOC) sethidden(OGNUNO_DEVE_GIOCARE(g),TRUE)
+
+  ! Ogni giocatore deve essere assegnato al più ad una squadra
+  forall(g in GIOC) sum(s in SQUAD) d(g,s) <= 1
+
+  minimise(OBJ)
+  print_res("CASO 2: QUALCUNO PUO ESSERE ESCLUSO")
+
+  procedure print_res(name: string)
+
+    declarations
+      valore_netto: array(SQUAD) of real
+      affinita: array(SQUAD) of real
+      penalita: array(SQUAD) of real
+    end-declarations
+
+    writeln(name+"\nValore della funzione obiettivo: "+getobjval+"  (Valore max: "+getsol(v_max)+", Valore min: "+getsol(v_min)+")")
+
+    writeln("\nComposizione squadre:\nSquadra \t|\tGiocatori\n----------------------------------------------------")
+    forall(s in SQUAD) do
+
+      valore_netto(s) := sum(r in REP,g in GIOC) VALORE(r,g)*getsol(d(g,s))
+      affinita(s) := sum(g1,g2 in GIOC | g2 > g1) AFF(g1,g2)*getsol(c(g1,g2,s))
+      penalita(s) := getsol(p(s))*PENALITA
+
+      write("S"+s+"  ("+(valore_netto(s)+affinita(s)+penalita(s))+")\t|\t")
+      forall(g in GIOC) write( if(getsol(d(g,s))>0,"G"+g+"\t","") )
+      writeln
+    end-do
+    writeln("----------------------------------------------------")
+
+    writeln("\nValore della squadra: Dettaglio\nSquadra   | Valore Netto|   Affinità\t| Penalità\n----------------------------------------------------")
+    forall(s in SQUAD) writeln("S"+s+"  ("+(valore_netto(s)+affinita(s)+penalita(s))+")  |\t"+valore_netto(s)+"\t|\t"+affinita(s)+"\t|\t"+penalita(s))
+    writeln("----------------------------------------------------\n")
+  end-procedure
+
+end-model

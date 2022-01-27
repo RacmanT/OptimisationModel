@@ -1,0 +1,118 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUMBER_OF_PACKAGES   = 3
+    NUMBER_OF_ACTIVITIES = 10
+  end-parameters
+
+  forward procedure printCostPackage
+  forward procedure printActivities
+  forward procedure printPackageMark
+
+  declarations
+
+    PACKAGES   = 1..NUMBER_OF_PACKAGES
+    ACTIVITIES = 1..NUMBER_OF_ACTIVITIES
+
+    PACKAGE_MAX_DURATION: array(PACKAGES) of integer
+    PACKAGE_MIN_MARK:     array(PACKAGES) of integer
+
+    ACTIVITY_DURATION:    array(ACTIVITIES) of real
+    ACTIVITY_COST:        array(ACTIVITIES) of integer
+    ACTIVITY_MARK:        array(ACTIVITIES) of integer
+
+    ! la variabile decisionale è associata a un certo pacchetto
+    y: array(PACKAGES, ACTIVITIES) of mpvar
+
+    ! costo associata ad ogni pacchetto
+    package_cost:array(PACKAGES) of mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(p in PACKAGES)                  package_cost(p)    is_integer
+  forall(p in PACKAGES, a in ACTIVITIES) y(p, a)            is_binary
+
+  PACKAGE_MAX_DURATION :: [10, 12, 16]
+  PACKAGE_MIN_MARK     :: [ 7,  6,  5]
+
+  ACTIVITY_DURATION     :: [6, 2, 5, 4, 1.5, 2.5, 3, 6, 2, 3]
+  ACTIVITY_COST         :: [120, 40, 150, 20, 30, 50, 90, 60, 70, 20]
+  ACTIVITY_MARK         :: [4, 1, 3, 3, 1, 3, 1, 3, 2, 2]
+
+  ! una attività è associata ad uno ed un solo pacchetto
+  forall(a in ACTIVITIES) sum(p in PACKAGES) y(p, a) <= 1
+
+  ! ogni pacchetto deve avere un voto minimo
+  forall(p in PACKAGES) sum(a in ACTIVITIES) y(p, a) * ACTIVITY_MARK(a) >= PACKAGE_MIN_MARK(p)
+
+  ! ogni pacchetto non deve durare più di un certo tot
+  forall(p in PACKAGES) sum(a in ACTIVITIES) y(p, a) * ACTIVITY_DURATION(a) <= PACKAGE_MAX_DURATION(p)
+
+  ! ogni pacchetto ha un certo costo
+  forall(p in PACKAGES) package_cost(p) = sum(a in ACTIVITIES) y(p, a) * ACTIVITY_COST(a)
+
+  minimise(sum(p in PACKAGES) package_cost(p))
+
+  writeln("Result: ", getobjval)
+
+  printCostPackage
+  printActivities
+  printPackageMark
+
+  writeln("")
+
+  ! la differenza tra il costo di un pacchetto e l'altro deve essere almeno di 90 euro
+
+  declarations
+    ! se il pacchetto p1 ha un costo superiore al pacchetto p2
+    z: array(PACKAGES, PACKAGES) of mpvar
+    bigM = 100000
+  end-declarations
+
+  forall(p1, p2 in PACKAGES) z(p1, p2) is_binary
+  
+  forall(p1, p2 in PACKAGES | p1 <> p2) do
+    package_cost(p1) - package_cost(p2) >=  90 - bigM * (1 - z(p1, p2))
+    package_cost(p1) - package_cost(p2) <= -90 + bigM * z(p1, p2)
+  end-do
+
+
+  minimise(sum(p in PACKAGES) package_cost(p))
+
+  writeln("Result ", getobjval)
+
+  printCostPackage
+  printActivities
+  printPackageMark
+
+  ! third part
+  minimise(package_cost(1) - package_cost(2) - package_cost(3))
+  writeln("Result ", getobjval)
+
+  procedure printCostPackage
+    forall(p in PACKAGES) do
+      writeln("The package ", p, " has a cost of ", getsol(package_cost(p)))
+    end-do
+  end-procedure
+
+  procedure printActivities
+    forall(p in PACKAGES) do
+      forall(a in ACTIVITIES) do
+        if getsol(y(p, a)) = 1 then
+          writeln("The activity ", a, " is in the package ", p)
+        end-if
+      end-do
+    end-do
+  end-procedure
+
+  procedure printPackageMark
+    forall(p in PACKAGES) do
+      writeln("The package ", p, " has a mark of ", sum(a in ACTIVITIES) getsol(y(p, a)) * ACTIVITY_MARK(a))
+    end-do
+  end-procedure
+
+end-model

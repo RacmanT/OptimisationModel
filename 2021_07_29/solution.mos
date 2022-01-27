@@ -1,0 +1,110 @@
+model Calendar
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+
+parameters
+	NUMERO_SQUADRE = 10 				                  ! numero di squadre
+	NUMERO_GIORNATE = 2 * (NUMERO_SQUADRE - 1) 			! numero di giornate del torneo
+end-parameters
+
+
+declarations
+	TOP: set of string
+	TEAMS: set of string
+	G = 1..NUMERO_GIORNATE
+	MINGIORNATE: integer
+end-declarations
+
+TOP    :: ["Virtus","Brindisi","Milano","Sassari"]
+TEAMS  :: ["Fortitudo", "Virtus", "Brindisi", "Cantù", "Milano", "Sassari", "Trento", "Treviso", "Trieste", "Venezia"]
+
+MINGIORNATE := 5
+
+declarations
+	!parametri
+	bigmatch:array(TEAMS,TEAMS) of integer	! 1 se la partita tra le squadre i e j è un big-match, 0 altrimenti
+
+	!variabili decisionali
+	y : array(TEAMS, G) of mpvar  				! y(i, g):  1, se la squadra i gioca in casa nella giornata g; 0 altrimenti
+	g : array(TEAMS, TEAMS) of mpvar			! n(i, j): giornata del torneo in cui avviene la partita i-j
+	z : array(TEAMS, TEAMS) of mpvar			! z(i, j): 1, se la partita i-j avviene nel girone di andata, 0 altrimenti
+	x : array(TEAMS, TEAMS, G) of mpvar  	! x(i, j, g): 1 se nella giornata g è programmata la partita tra i e j; 0 altrimenti
+
+end-declarations
+
+
+forall(i,j in TEAMS | i <> j) bigmatch(i,j):=0
+forall(i,j in TOP | i <> j) bigmatch(i,j):=1
+
+forall(i,j in TEAMS) do
+
+	z(i,j) is_binary
+
+	forall(k in G) do
+		x(i,j,k) is_binary
+		y(i,k) is_binary
+	end-do
+
+end-do
+
+!ogni squadra affronta una partita in ogni giornata o in casa o in trasferta
+forall(k in G, i in TEAMS) sum(j in TEAMS | i <> j) (x(i,j,k) + x(j,i,k))=1
+
+!Non si deve avere più di un  big-match per giornata
+forall(k in G) sum(i,j in TEAMS | i <> j) (x(i,j,k)*bigmatch(i,j))<=1
+
+
+!Ogni squadra si deve affrontare una volta tutte le altre squadre nel girone di andata e una seconda volta nel girone di ritorno
+forall(i,j in TEAMS | i <> j) do
+	sum(k in G) x(i,j,k)=1
+	sum(k in 1..round(NUMERO_GIORNATE/2)) (x(i,j,k) + x(j,i,k)) = 1
+end-do
+
+!il girone di ritorno non deve seguire l’ordine del girone d’andata: se due squadre si affrontano nella prima giornata del girone di andata le stesse non si potranno affrontare nella prima giornata del girone di ritorno e così via.
+forall(k in 1..round(NUMERO_GIORNATE/2), i,j in TEAMS | i <> j) (x(i,j,k) + x(j,i,k+round(NUMERO_GIORNATE/2))) <=1
+
+!y(i,k)=1 se la squadra i gioca in casa nella giornata k, 0 se gioca in trasferta
+forall(k in G, i in TEAMS) sum(j in TEAMS | i <> j) x(i,j,k) = y(i,k)
+
+!Ogni squadra può affrontare al massimo due partite consecutive in casa, e al massimo due partite consecutive in trasferta.
+forall(k in 1..NUMERO_GIORNATE-2, i in TEAMS) do
+	y(i,k) + y(i,k+1) + y(i,k+2) >=1
+	y(i,k) + y(i,k+1) + y(i,k+2) <=2
+end-do
+
+!e due squadre di Bologna non possono giocare entrambe in casa nella stessa giornata di campionato. Lo stesso vincolo vale per la coppia Milano-Cantù.
+forall(k in G) do
+	y("Fortitudo",k) + y("Virtus",k) <= 1
+	y("Cantù",k) + y("Milano",k) <= 1
+end-do
+
+forall(i,j in TEAMS | i <> j) do
+	!giornata in cui avviene la partita i-j
+	g(i,j) = sum(k in G) (k*x(i,j,k))
+
+	!Tra la partita di andata e quella di ritorno devono trascorrere almeno 5 giornate di campionato
+	g(i,j) - g(j,i) >= MINGIORNATE - z(i,j)*(MINGIORNATE+NUMERO_GIORNATE)
+	g(j,i) - g(i,j) >= MINGIORNATE - (1-z(i,j))*(MINGIORNATE+NUMERO_GIORNATE)
+end-do
+
+
+
+
+! setparam("XPRS_VERBOSE", true)
+!problema di ammissibilità
+minimize(1)
+
+
+
+forall(k in G) do
+	writeln("Giornata ",k,"\n")
+
+	forall(i,j in TEAMS | i <> j AND getsol(x(i,j,k))>0.9) do
+		writeln(i, " - ",j, if(bigmatch(i,j)=1, "\tB", ""))
+	end-do
+	writeln("\n")
+end-do
+
+
+
+end-model

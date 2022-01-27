@@ -1,0 +1,89 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMBER_OF_SCENARIOS   = 4
+    NUMBER_OF_SERVICES    = 3
+    NUMBER_OF_CONSULTANTS = 5
+  end-parameters
+
+  declarations
+    SERVICES    = 1..NUMBER_OF_SERVICES
+    SCENARIOS   = 1..NUMBER_OF_SCENARIOS
+    CONSULTANTS = 1..NUMBER_OF_CONSULTANTS
+
+    SS             : array(SERVICES, SCENARIOS)   of integer
+    COST_CONSULTANT: array(CONSULTANTS)           of integer
+    DURATION       : array(CONSULTANTS)           of integer
+    SERVICE_TIME   : array(SERVICES, CONSULTANTS) of integer
+    PENALITIES     : array(SERVICES)              of integer
+
+    ! x indica se il consulente c viene ingaggiato
+    x: array(SCENARIOS, CONSULTANTS) of mpvar
+
+    ! quante richieste per servizio sono state soddisfatte in un determinato scenario
+    y: array(SCENARIOS, SERVICES, CONSULTANTS) of mpvar
+
+    ! richieste non soddisfatte nello scenario sc
+    z: array(SCENARIOS, SERVICES) of mpvar
+
+    ! costo fisso dovuto all'assunzione di un certo consulente
+    fixed_cost: array(SCENARIOS) of mpvar
+
+    ! penalità aggiuntive introdotte dalla non gestione di alcune richieste
+    variable_cost: array(SCENARIOS) of mpvar
+
+    ! costo totale per scenario
+    total_scenario_cost: array(SCENARIOS) of mpvar
+    total_cost_worst_case: mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(sc in SCENARIOS, c in CONSULTANTS)                 x(sc, c)                is_binary
+  forall(sc in SCENARIOS, se in SERVICES, c in CONSULTANTS) y(sc, se, c)            is_integer
+  forall(sc in SCENARIOS)                                   variable_cost(sc)       is_continuous
+  forall(sc in SCENARIOS)                                   fixed_cost(sc)          is_continuous
+  forall(sc in SCENARIOS)                                   total_scenario_cost(sc) is_continuous
+
+  total_cost_worst_case is_continuous
+
+  SS :: [16, 14, 14, 12,
+         14, 18, 13, 14,
+         11, 10, 12, 15]
+
+  COST_CONSULTANT :: [500, 600, 400, 550, 700]
+
+  DURATION        :: [300, 360, 300, 360, 420]
+
+  SERVICE_TIME    :: [35, 40, 30, 50, 35,
+                      45, 40, 35, 40, 35,
+                      60, 45, 55, 50, 40]
+
+  PENALITIES      :: [150, 100, 200]
+
+  ! indipendentemente dallo scenario, un consulente, se assunto, non può svolgere un numero di ore superiore a quello previsto
+  forall(sc in SCENARIOS, c in CONSULTANTS) sum(se in SERVICES) y(sc, se, c) * SERVICE_TIME (se, c) <= DURATION(c) * x(sc, c)
+
+  ! per ogni scenario il numero di servizi serviti non può essere superiore a quelli che si presentano
+  forall(sc in SCENARIOS, sr in SERVICES) sum(c in CONSULTANTS) y(sc, sr, c) <= SS(sr, sc)
+
+  ! i costi fissi sono dettati dal fatto che un consulente sia o meno assunto
+  forall(sc in SCENARIOS) fixed_cost(sc) = sum(c in CONSULTANTS) x(sc, c) * COST_CONSULTANT(c)
+
+  ! il numero di richieste non soddisfatte è pari a quelle totali meno quello soddisfatte
+  forall(sc in SCENARIOS, se in SERVICES) (SS(se, sc) - sum(c in CONSULTANTS) y(sc, se, c) ) = z(sc, se)
+
+  ! i costi variabili sono dettati dalla non gestione di richieste
+  forall (sc in SCENARIOS) variable_cost(sc) = sum(se in SERVICES) z(sc, se) * PENALITIES(se)
+
+  ! il costo totale nel caso peggiore è uguale ai suoi costi fissi e costi variabili
+  forall(sc in SCENARIOS) total_scenario_cost(sc) = fixed_cost(sc) + variable_cost(sc)
+
+  ! costo totale nel caso peggiore è minore o uguale di quello negli altri scenari
+  forall(sc in SCENARIOS) total_scenario_cost(sc) <= total_cost_worst_case
+
+  minimise(total_cost_worst_case)
+  writeln(getobjval)
+end-model

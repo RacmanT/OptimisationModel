@@ -1,0 +1,97 @@
+model OptimalPath
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+
+parameters
+	NC = 5 		!numero di consulenti
+	NS = 3 		!numero di servizi proposti
+	NP = 4 		!numero di scenari previsti
+end-parameters
+
+
+declarations
+	C=1..NC
+	S=1..NS
+	P=1..NP
+
+	!parametri
+	COSTC:array(C) of real					!costo giornaliero del consulente c
+	DMAXC:array(C) of real					!tempo massimo (in minuti) di lavoro per il consulente c
+	COSTS:array(S) of real					!costo associato alla mancata prestazione di un servizio s
+	T:array(C,S) of integer					!tempo medio (in minuti) in cui il consulente c offre il servizio s
+	N:array(S,P) of integer					!numero di richieste del servizio s previste nello scenario p
+
+	!variabili decisionali
+	x:array(C,S,P) of mpvar  				!x(c,s,p): numero di servizi di tipo s gestiti dal consulente c nello scenario p
+	y:array(C) of mpvar  					!y(c):   1, se viene ingaggiato il consulente c; 0 altrimenti
+	z:array(S,P) of mpvar					!z(s,p): numero di servizi di tipo s non gestiti nello scenario p
+	costMax: mpvar							!costo totale nel caso peggiore
+	cost:array(P) of mpvar					!costo totale associato allo scenario p
+
+end-declarations
+
+
+COSTC::[500, 600, 400, 550, 700]
+DMAXC::[300, 360, 300, 360, 420]
+COSTS::[150, 100, 200]
+
+T::[ 35,45,60,
+     40,40,45,
+     30,35,55,
+     50,40,50,
+     35,35,40]
+
+N::[ 16,14,14,12,
+     14,18,13,14,
+     11,10,12,15]
+
+
+
+forall(c in C)	y(c) is_binary
+forall(c in C, s in S, p in P)	x(c,s,p) is_integer
+forall(p in P, s in S)	z(s,p) is_integer
+
+
+
+!il consulente c può gestire un servizio s solo se viene ingaggiato
+!il tempo stimato di lavoro non può superare la disponibilità oraria del consulente
+forall(c in C, p in P) sum(s in S) x(c,s,p)*T(c,s) <= DMAXC(c)*y(c)
+
+!la differenza tra le richieste stimate e il numero totale di servizi di tipo s gestiti è uguale al numero di servizi non gestiti
+forall(p in P, s in S) sum(c in C) x(c,s,p) + z(s,p) = N(s,p)
+
+! costo totale nello scenario p
+forall(p in P) cost(p) = sum(c in C) COSTC(c)*y(c) + sum(s in S) z(s,p)*COSTS(s)
+
+
+!costo totale massimo nel peggiore degli scenari
+forall(p in P) cost(p) <= costMax
+
+!setparam("XPRS_VERBOSE", true)
+minimize(costMax)
+
+writeln("Costo massimo nel caso peggiore: ", getobjval)
+forall(c in C | getsol(y(c))=1) do
+	writeln("Consulente ",c,"\tcosto: ", COSTC(c))
+end-do
+writeln("")
+
+forall(p in P) do
+	writeln("Scenario ",p," costo: ", getsol(cost(p)))
+	forall(c in C | getsol(y(c))=1) do
+		writeln("Consulente ",c,"\tminuti di lavoro:", sum(s in S) getsol(x(c,s,p))*T(c,s)," (", DMAXC(c),")")
+		writeln("Numero servizi gestiti:")
+		forall(s in S | getsol(x(c,s,p)) > 0) do
+			writeln(getsol(x(c,s,p))," servizi di tipo ",s)
+		end-do
+		writeln("")
+	end-do
+	writeln("Numero servizi non gestiti:")
+	forall(s in S | getsol(z(s,p)) > 0) do
+		writeln(getsol(z(s,p))," serivizi di tipo ", s, "\tcosto:", getsol(z(s,p))*COSTS(s))
+	end-do
+	writeln("")
+end-do
+
+
+end-model

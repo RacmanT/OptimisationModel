@@ -1,0 +1,150 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_SOCI = 2
+    NUMERO_GIORNI = 7
+    NUMERO_MANSIONI = 3
+  end-parameters
+
+  declarations
+
+    SOCI = 1..NUMERO_SOCI
+    GIORNI = 1..NUMERO_GIORNI
+    MANSIONI = 1..NUMERO_MANSIONI
+
+    COSTI_SOCIO_1   : array(GIORNI, MANSIONI) of integer
+    COSTI_SOCIO_2   : array(GIORNI, MANSIONI) of integer
+    INCASSI_SOCIO_1 : array(GIORNI, MANSIONI) of integer
+    INCASSI_SOCIO_2 : array(GIORNI, MANSIONI) of integer
+
+    INCASSI_AGGIUNTIVI : array(MANSIONI) of integer
+    COSTI_CAMBIO_MANSIONE: array(MANSIONI, MANSIONI) of integer
+
+    ! indica se la mansione m viene svolta in un certo giorno dal socio s
+    x: array(SOCI, MANSIONI, GIORNI) of mpvar
+
+    ! indica se il socio s è passato dalla mansione m1 alla mansione m2 tra il giorno g e g-1
+    y: array(SOCI, MANSIONI, MANSIONI, 2..NUMERO_GIORNI) of mpvar
+
+    ! indica se una certa mansione è stata fatta insieme
+    z: array(MANSIONI, GIORNI) of mpvar
+
+    ! vinc: array(SOCI, MANSIONI) of linctr
+    vinc: linctr
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(m in MANSIONI, g in GIORNI) z(m, g) is_binary
+  forall(s in SOCI, m in MANSIONI, g in GIORNI) x(s, m, g) is_binary
+  forall(s in SOCI, m1, m2 in MANSIONI, g in 2..NUMERO_GIORNI) y(s, m1, m2, g) is_binary
+
+
+  INCASSI_SOCIO_1 :: [100,  90, 60,
+                       90,  70, 60,
+                       60, 100, 60,
+                       70,  80, 60,
+                       90,  60, 60,
+                      100, 100, 60,
+                      120, 100, 60]
+
+  INCASSI_SOCIO_2 :: [ 80,  75, 60,
+                       75,  80, 60,
+                       70,  70, 60,
+                       70,  90, 60,
+                       80,  80, 60,
+                      100,  90, 60,
+                      150, 150, 60]
+
+  COSTI_SOCIO_1 :: [70, 70, 90,
+                    80, 50, 90,
+                    30, 50, 90,
+                    50, 70, 90,
+                    50, 30, 90,
+                    30, 40, 90,
+                    40, 60, 90]
+
+
+  COSTI_SOCIO_2 :: [50, 30, 90,
+                    50, 50, 90,
+                    30, 50, 90,
+                    20, 60, 90,
+                    40, 60, 90,
+                    40, 60, 90,
+                    60, 40, 90]
+
+ COSTI_CAMBIO_MANSIONE :: [ 0, 60, 20,
+                           60,  0, 20,
+                           20, 20,  0]
+
+  INCASSI_AGGIUNTIVI :: [30, 50, 30]
+
+  ! ! ogni socio deve svolgere tutte e tre le mansioni in una settimana
+  ! forall(s in SOCI, m in MANSIONI) vinc(s, m) := sum(g in GIORNI) x(s, m, g) >= if(m <> 3, 1, 4)
+  
+  ! alla mansione 3 devono essere dedicati almeno 4 giorni-uomo lavorativi
+  vinc := sum(s in SOCI, g in GIORNI) x(s, 3, g) >= 4
+
+  ! durante la settimana ogni socio deve essere assegnato almeno una volta ad ogni mansione
+  forall(s in SOCI, m in MANSIONI) sum(g in GIORNI) x(s, m, g) >=1
+  
+  ! ogni socio non può svolgere più di una mansione al giorno
+  forall(s in SOCI, g in GIORNI) sum(m in MANSIONI) x(s, m, g) = 1
+
+  ! bound la x con la y (and logico)
+  forall(s in SOCI, m1, m2 in MANSIONI, g in 2..NUMERO_GIORNI) do
+    y(s, m1, m2, g) >=  x(s, m2, g) + x(s, m1, g - 1) - 1
+    y(s, m1, m2, g) <=  x(s, m2, g)
+    y(s, m1, m2, g) <=  x(s, m1, g - 1)
+  end-do
+
+  ! bound la x con la z: entrambi eseguono la stessa mansione lo stesso giorno (and logico)
+  forall(m in MANSIONI, g in GIORNI) do
+    z(m, g) >= x(1, m, g) + x(2, m, g) - 1
+    z(m, g) <= x(1, m, g)
+    z(m, g) <= x(2, m, g)
+  end-do
+
+  maximise(sum(g in GIORNI, m in MANSIONI) x(1, m, g) * (INCASSI_SOCIO_1(g, m) - COSTI_SOCIO_1(g, m)) +
+           sum(g in GIORNI, m in MANSIONI) x(2, m, g) * (INCASSI_SOCIO_2(g, m) - COSTI_SOCIO_2(g, m)) -
+           sum(s in SOCI, g in 2..NUMERO_GIORNI, m1, m2 in MANSIONI) y(s, m1, m2, g) * COSTI_CAMBIO_MANSIONE(m1, m2) +
+           sum(m in MANSIONI, g in GIORNI) z(m, g) * INCASSI_AGGIUNTIVI(m))
+
+  writeln("Il costo totale è ", getobjval)
+
+  declarations
+   w: array(GIORNI) of mpvar
+   a: array(2..NUMERO_GIORNI) of mpvar
+  end-declarations
+
+  forall(g in 2..NUMERO_GIORNI) a(g) is_binary
+  forall(g in GIORNI) w(g) is_free
+
+  forall(g in GIORNI) do
+  w(g) =
+    sum(m in MANSIONI) x(1, m, g) * (INCASSI_SOCIO_1(g, m) - COSTI_SOCIO_1(g, m)) +
+    sum(m in MANSIONI) x(2, m, g) * (INCASSI_SOCIO_2(g, m) - COSTI_SOCIO_2(g, m)) -
+    if(g = 1, 0, sum(s in SOCI, m1, m2 in MANSIONI) y(s, m1, m2, g) * COSTI_CAMBIO_MANSIONE(m1, m2)) +
+    sum(m in MANSIONI) z(m, g) * INCASSI_AGGIUNTIVI(m)
+  end-do
+
+  ! forall(g in 2..NUMERO_GIORNI) w(g) - w(g - 1) >= 70 - MAX_INT * (1 - a(g))
+  ! forall(g in 2..NUMERO_GIORNI) w(g) - w(g - 1) <= -70 + MAX_INT * a(g)
+
+  forall(g in 2..NUMERO_GIORNI) w(g) - w(g -1) <= 70
+  forall(g in 2..NUMERO_GIORNI) w(g) - w(g -1) >= -70
+
+  ! forall(s in SOCI, m in MANSIONI) sethidden(vinc(s, m), true)
+  sethidden(vinc, true)
+  forall(s in SOCI, m in MANSIONI) sum(g in GIORNI) x(s, m, g) >= 1
+
+    maximise(sum(g in GIORNI, m in MANSIONI) x(1, m, g) * (INCASSI_SOCIO_1(g, m) - COSTI_SOCIO_1(g, m)) +
+           sum(g in GIORNI, m in MANSIONI) x(2, m, g) * (INCASSI_SOCIO_2(g, m) - COSTI_SOCIO_2(g, m)) -
+           sum(s in SOCI, g in 2..NUMERO_GIORNI, m1, m2 in MANSIONI) y(s, m1, m2, g) * COSTI_CAMBIO_MANSIONE(m1, m2) +
+           sum(m in MANSIONI, g in GIORNI) z(m, g) * INCASSI_AGGIUNTIVI(m))
+
+  writeln("Il costo totale è ", getobjval)
+
+end-model

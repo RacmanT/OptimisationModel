@@ -1,0 +1,80 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    GIOCATORI = 1..10
+    SQUADRE = 1..3
+
+    DIFESA: array(GIOCATORI) of integer
+    CENTROCAMPO: array(GIOCATORI) of integer
+    ATTACCO: array(GIOCATORI) of integer
+
+    AFFINITA: array(GIOCATORI, GIOCATORI) of integer
+
+    x:array(GIOCATORI, SQUADRE) of mpvar
+    y:array(GIOCATORI, GIOCATORI, SQUADRE) of mpvar
+    z:array(SQUADRE) of mpvar
+
+    valore_squadra:array(SQUADRE) of mpvar
+    valore_massimo_squadra:  mpvar
+    valore_minimo_squadra: mpvar
+
+  end-declarations
+
+  writeln("Begin running model")
+
+  forall(g in GIOCATORI, s in SQUADRE) x(g, s) is_binary
+  forall(g1,g2 in GIOCATORI, s in SQUADRE) y(g1, g2, s) is_binary
+  forall(s in SQUADRE) z(s) is_binary
+
+  DIFESA      :: [7, 2, 10, 7, 4, 3, 2, 0, 0, 2]
+  CENTROCAMPO :: [9, 6, 3, 4, 10, 7, 7, 2, 7, 2]
+  ATTACCO     :: [1, 5, 1, 6, 4, 2, 7, 9, 7, 10]
+
+  AFFINITA :: [0,  5,  0,  0, -7,  0,  0,  0,  2,  0,
+               0,  0, -4,  0,  0,  0,  0,  6,  0,  0,
+               0,  0,  0,  1,  0,  0,  0,  0,  0,  4,
+               0,  0,  0,  0,  3,  0, -6,  0,  0,  0,
+               0,  0,  0,  0,  0,  4,  0,  0,  0,  0,
+               0,  0,  0,  0,  0,  0, -2,  0, -4,  0,
+               0,  0,  0,  0,  0,  0,  0,  6,  0,  0,
+               0,  0,  0,  0,  0,  0,  0,  0,  0, -7,
+               0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+               0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+
+
+  forall(g in GIOCATORI) sum(s in SQUADRE) x(g, s) = 1
+  forall(s in SQUADRE) sum(g in GIOCATORI) x(g, s) >= 3
+
+  forall(s in SQUADRE) sum(g in GIOCATORI) x(g, s) * DIFESA(g) >= 10
+  forall(s in SQUADRE) sum(g in GIOCATORI) x(g, s) * CENTROCAMPO(g) >= 10
+  forall(s in SQUADRE) sum(g in GIOCATORI) x(g, s) * ATTACCO(g) >= 10
+
+  forall(s in SQUADRE)  z(s) = -3 + sum(g in GIOCATORI) x(g, s)
+
+  forall(g1, g2 in GIOCATORI, s in SQUADRE) do
+    x(g1,s) >= y(g1,g2,s)
+    x(g2,s) >= y(g1,g2,s)
+    x(g2,s) + x(g1,s) - 1 <= y(g1,g2,s)
+  end-do
+
+  forall(s in SQUADRE) do
+    valore_squadra(s) = (sum(g in GIOCATORI) (x(g, s) * (DIFESA(g) + ATTACCO(g) + CENTROCAMPO(g)))) +
+                                           (sum(g1, g2 in GIOCATORI) (AFFINITA(g1, g2) * y(g1, g2, s))) -
+                                           z(s) * 5
+  end-do
+
+  forall(s in SQUADRE) do
+  valore_squadra(s) >= valore_minimo_squadra
+  valore_squadra(s) <= valore_massimo_squadra
+  end-do
+
+  minimise(valore_massimo_squadra - valore_minimo_squadra)
+
+  writeln(getobjval)
+
+
+  writeln("End running model")
+end-model

@@ -1,0 +1,129 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMBER_OF_PLAYERS   = 10
+    NUMBER_OF_QUALITIES = 3
+    NUMBER_OF_TEAMS     = 3
+    MIN_QUALITY_TEAM    = 10
+  end-parameters
+
+  forward procedure printAssociationPlayerTeam
+
+  declarations
+
+    QUALITIES = 1..NUMBER_OF_QUALITIES
+    PLAYERS   = 1..NUMBER_OF_PLAYERS
+    TEAMS     = 1..NUMBER_OF_TEAMS
+
+    AFFINITY: array(PLAYERS,   PLAYERS) of real
+    B:        array(QUALITIES, PLAYERS) of integer
+
+    ! valore di ogni team
+    team_value: array(TEAMS) of mpvar
+
+    ! quale giocatore viene assegnato a quale team
+    team_player: array(PLAYERS, TEAMS) of mpvar
+
+    ! se due player sono o non sono nello stesso team
+    same_team:  array(PLAYERS, PLAYERS, TEAMS) of mpvar
+
+    ! indica quale team ha cinque giocatori
+    four_players: array(TEAMS) of mpvar
+
+    ! player value
+    player_value: array(PLAYERS) of integer
+
+    ! max e min score tra tutti i teams
+    max_score: mpvar
+    min_score: mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(t in TEAMS) team_value(t)    is_integer
+  forall(t in TEAMS) four_players(t)  is_binary
+  forall(p in PLAYERS, t in TEAMS)      team_player(p, t)     is_binary
+  forall(p1, p2 in PLAYERS, t in TEAMS) same_team(p1, p2, t)  is_binary
+
+  max_score is_continuous
+  min_score is_continuous
+
+  AFFINITY :: [0,  5,  0,  0, -7,  0,  0,  0,  2,  0,
+               0,  0, -4,  0,  0,  0,  0,  6,  0,  0,
+               0,  0,  0,  1,  0,  0,  0,  0,  0,  4,
+               0,  0,  0,  0,  3,  0, -6,  0,  0,  0,
+               0,  0,  0,  0,  0,  4,  0,  0,  0,  0,
+               0,  0,  0,  0,  0,  0, -2,  0, -4,  0,
+               0,  0,  0,  0,  0,  0,  0,  6,  0,  0,
+               0,  0,  0,  0,  0,  0,  0,  0,  0, -7,
+               0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+               0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+
+  B :: [7, 2, 10, 7, 4, 3, 2, 0, 0, 2,
+        9, 6, 3, 4, 10, 7, 7, 2, 7, 2,
+        1, 5, 1, 6, 4, 2, 7, 9, 7, 10]
+
+  ! ogni giocatore può essere associato ad una ed una sola squadra
+  forall(p in PLAYERS) sum(t in TEAMS) team_player(p, t) = 1
+
+  ! una squadra deve essere composta di almeno tre giocatori
+  forall(t in TEAMS) sum(p in PLAYERS) team_player(p, t) >= 3
+
+  ! NON è in realtà una variabile decisionale ma sti cazzi
+  forall(p in PLAYERS) player_value(p) := sum(q in QUALITIES) B(q, p)
+
+  ! ogni team deve avere un punteggio complessivo minimo per ogni reparto di almeno 10
+  forall(t in TEAMS, q in QUALITIES) sum(p in PLAYERS) team_player(p, t) * B(q, p) >= MIN_QUALITY_TEAM
+
+  ! fill same_team
+  forall(t in TEAMS, p1, p2 in PLAYERS) do
+    same_team(p1, p2, t) <= team_player(p1, t)
+    same_team(p1, p2, t) <= team_player(p2, t)
+    same_team(p1, p2, t) >= team_player(p1, t) + team_player(p2, t) - 1
+  end-do
+
+  ! solo una squadra ha 4 giocatori
+  sum(t in TEAMS) four_players(t) = 1
+
+  ! determiniamo quale team ha 4 giocatori
+  forall(t in TEAMS) sum(p in PLAYERS) team_player(p, t) <= four_players(t) + 3
+
+  ! valutazione complessiva di ogni squadra
+  forall(t in TEAMS) do
+    team_value(t) = sum(p in PLAYERS) player_value(p) * team_player(p, t) + sum(p1, p2 in PLAYERS) same_team(p1, p2, t) * AFFINITY(p1, p2) - four_players(t) * 5
+  end-do 
+
+  ! il max score sarà maggiore o uguale di tutti i punteggi, viceversa per il min score
+  forall(t in TEAMS) team_value(t) <= max_score
+  forall(t in TEAMS) team_value(t) >= min_score
+
+  ! funzione obiettivo
+  minimise(max_score - min_score)
+
+  writeln("Result ", getobjval)
+
+  forall(t in TEAMS) writeln("The team ", t, " has a valutation of ", getsol(team_value(t)))
+  
+  printAssociationPlayerTeam
+  
+  ! verifichiamo che la valutazione sia effettivamente di almeno 10 per ogni reparto
+  ! forall(t in TEAMS, q in QUALITIES) writeln("team ", t, " and quality ", q, " ", sum(p in PLAYERS) getsol(team_player(p, t)) * B(q, p))
+  
+  procedure printAssociationPlayerTeam
+
+    forall(t in TEAMS) do
+      forall(p in PLAYERS) do
+        if getsol(team_player(p, t)) = 1 then
+          writeln("The player ", p, " plays in team ", t, " ")
+        end-if
+      end-do
+      ! writeln("")
+    end-do
+
+
+  end-procedure
+
+
+end-model

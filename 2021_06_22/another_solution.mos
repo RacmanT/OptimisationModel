@@ -1,0 +1,112 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_SQUADRE = 3
+    NUMERO_GIOCATORI = 10
+    PUNTEGGIO_MINIMO_REPARTO = 10
+  end-parameters
+
+
+  declarations
+
+    SQUADRE   = 1..NUMERO_SQUADRE
+    GIOCATORI = 1..NUMERO_GIOCATORI
+
+    DIFESA      : array(GIOCATORI) of integer
+    CENTROCAMPO : array(GIOCATORI) of integer
+    ATTACCO     : array(GIOCATORI) of integer
+
+    AFFINITA    : array(GIOCATORI, GIOCATORI) of integer
+
+    ! indica a quale squadra s appartiene il giocatore g
+    x: array(GIOCATORI, SQUADRE) of mpvar
+
+    ! indica se la coppia di giocatori gioca nella stessa squadra
+    y: array(GIOCATORI, GIOCATORI, SQUADRE) of mpvar
+
+    ! se una squadra ha tre giocatori
+    z: array(SQUADRE) of mpvar
+
+    ! valore squadra
+    valore_squadra : array(SQUADRE) of mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(s in SQUADRE)                         z(s)         is_binary
+  forall(s in SQUADRE)            valore_squadra(s)         is_integer
+
+  forall(s in SQUADRE, g in GIOCATORI)      x(g, s)      is_binary
+  forall(g1, g2 in GIOCATORI, s in SQUADRE) y(g1, g2, s) is_binary
+
+
+  DIFESA      :: [7, 2, 10, 7, 4, 3, 2, 0, 0, 2]
+  CENTROCAMPO :: [9, 6, 3, 4, 10, 7, 7, 2, 7, 2]
+  ATTACCO     :: [1, 5, 1, 6, 4, 2, 7, 9, 7, 10]
+
+  AFFINITA :: [0,  5,  0,  0, -7,  0,  0,  0,  2,  0,
+               0,  0, -4,  0,  0,  0,  0,  6,  0,  0,
+               0,  0,  0,  1,  0,  0,  0,  0,  0,  4,
+               0,  0,  0,  0,  3,  0, -6,  0,  0,  0,
+               0,  0,  0,  0,  0,  4,  0,  0,  0,  0,
+               0,  0,  0,  0,  0,  0, -2,  0, -4,  0,
+               0,  0,  0,  0,  0,  0,  0,  6,  0,  0,
+               0,  0,  0,  0,  0,  0,  0,  0,  0, -7,
+               0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+               0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+
+
+  ! un giocatore può giocare solo in una squadra
+  forall(g in GIOCATORI) sum(s in SQUADRE) x(g, s) = 1
+
+  ! una squadra deve avere almeno tre giocatori
+  forall(s in SQUADRE) sum(g in GIOCATORI) x(g, s) >= 3
+  ! forall(s in SQUADRE) sum(g in GIOCATORI) x(g, s) >= 1
+
+
+  ! bound x con z
+  forall(s in SQUADRE) z(s) = 4 - sum(g in GIOCATORI) x(g, s)
+
+
+  ! ogni squadra per ogni reparto deve avere un punteggio minimo
+  forall(s in SQUADRE) do
+    sum(g in GIOCATORI) x(g, s) * DIFESA(g)      >= PUNTEGGIO_MINIMO_REPARTO
+    sum(g in GIOCATORI) x(g, s) * ATTACCO(g)     >= PUNTEGGIO_MINIMO_REPARTO
+    sum(g in GIOCATORI) x(g, s) * CENTROCAMPO(g) >= PUNTEGGIO_MINIMO_REPARTO
+  end-do
+
+  ! bound x con y
+  forall(s in SQUADRE, g1, g2 in GIOCATORI) do
+    y(g1, g2, s) >= x(g1, s) + x(g2, s) - 1
+    y(g1, g2, s) <= x(g1, s)
+    y(g1, g2, s) <= x(g2, s)
+  end-do
+
+  ! determiniamo valore di ogni squadra
+  forall(s in SQUADRE) valore_squadra(s) = (sum(g in GIOCATORI) (x(g, s) * (DIFESA(g) + ATTACCO(g) + CENTROCAMPO(g)))) +
+                                           (sum(g1, g2 in GIOCATORI) (AFFINITA(g1, g2) * y(g1, g2, s))) -
+                                           (1 - z(s)) * 5
+
+declarations
+  valore_minimo_squadra : mpvar
+  valore_massimo_squadra : mpvar
+end-declarations
+
+forall(s in SQUADRE) valore_minimo_squadra <= valore_squadra(s)
+forall(s in SQUADRE) valore_massimo_squadra >= valore_squadra(s)
+
+
+minimise(valore_massimo_squadra - valore_minimo_squadra)
+
+writeln("Valore squadra 1: ", getsol(valore_squadra(1)))
+writeln("Valore squadra 2: ", getsol(valore_squadra(2)))
+writeln("Valore squadra 3: ", getsol(valore_squadra(3)))
+
+forall(s in SQUADRE) do
+  writeln(sum(g in GIOCATORI) getsol(x(g, s)))
+end-do
+
+
+end-model

@@ -1,0 +1,114 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+
+    ! siccome ci sono dieci squadre e tutte devono affrontare le altre due volte, allora abbiamo 90 incontri in totale...
+    ! ...e poiché in ogni giorno si devono svolgere 5 incontri, il calendario sarà composto di 18 giornate, di cui le...
+    ! ...prime nove saranno di andata e le altre nove saranno di ritorno
+
+    NUMERO_DI_SQUADRE   = 10
+    NUMERO_DI_GIORNATE  = 18
+  end-parameters
+
+  declarations
+
+    SQUADRE   = 1..NUMERO_DI_SQUADRE
+    GIORNATE  = 1..NUMERO_DI_GIORNATE
+    ANDATA    =  1..9
+    RITORNO   = 10..18
+    I         = 1..2                  ! 1 se la squadra gioca in casa, 2 se la squadra gioca in trasferta
+
+    ! array che indica se la squadra i-esima è di prima fascia
+    ! i numeri associati alle squadre sono nello stesso ordine presentato nel testo d'esame
+    PRIMA_FASCIA: array(SQUADRE) of integer
+
+    ! quale squadra ha affrontato un'altra in un certo giorno, e se era in casa o in trasferta (la prima squadra)
+    x: array(SQUADRE, SQUADRE, GIORNATE, I) of mpvar
+
+
+    ! indica in quale giornata si è svolta la partita tra due squadre
+    giornata_andata:  array(SQUADRE, SQUADRE) of mpvar
+    giornata_ritorno: array(SQUADRE, SQUADRE) of mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(s1, s2 in SQUADRE, g in GIORNATE, i in I)  x(s1, s2, g, i)           is_binary
+  forall(s1, s2 in SQUADRE)                         giornata_andata (s1, s2)  is_integer
+  forall(s1, s2 in SQUADRE)                         giornata_ritorno(s1, s2)  is_integer
+
+  PRIMA_FASCIA :: [0, 1, 1, 0, 1, 1, 0, 0, 0, 0]
+
+  ! la stessa squadra non affronta mai sé stessa
+  forall(s in SQUADRE, g in GIORNATE, i in I) x(s, s, g, i) = 0
+
+
+  ! sia per il girone di andata che per il girone di ritorno due squadre si affrontano una ed una sola volta
+  forall(s1, s2 in SQUADRE) do
+    sum(g in ANDATA,  i in I) x(s1, s2, g, i) = 1
+    sum(g in RITORNO, i in I) x(s1, s2, g, i) = 1
+  end-do
+
+
+  ! ogni giornata ogni squadra deve disputare una ed una sola partita
+  forall(g in GIORNATE, s1 in SQUADRE) sum(s2 in SQUADRE, i in I) x(s1, s2, g, i) = 1
+
+
+
+  ! in ogni giornata vengono disputati cinque incontri
+  forall(g in GIORNATE) sum(s1, s2 in SQUADRE, i in I) x(s1, s2, g, i) = 5 * 2
+  ! 5*2 in quanto vengono contati x(2, 1, g, i) e x(1, 2, g, i) che sono la stessa partita
+
+
+
+  ! se la prima squadra ha affrontato nel girone di andata la seconda, deve succedere l'opposto nel girone di ritorno
+  forall(s1, s2 in SQUADRE, i in I) sum(g in ANDATA) x(s1, s2, g, i) + sum(g in RITORNO) x(s1, s2, g, i) <= 1
+
+
+
+  ! se due squadre si affrontano in un certo giorno all'andata non si possono riaffrontare nella stessa giornata di ritorno
+  forall(s1, s2 in SQUADRE, g in ANDATA) sum(i in I) (x(s1, s2, g, i) + x(s1, s2, g+9, i)) <= 1
+
+
+
+  ! ogni squadra non può giocare più di due partite consecutive in casa o in trasferta
+  forall(s1, s2 in SQUADRE, g in 3..18) do
+    x(s1, s2, g, 1) + x(s1, s2, g-1, 1) + x(s1, s2, g-2, 1) <= 2
+    x(s1, s2, g, 2) + x(s1, s2, g-1, 2) + x(s1, s2, g-2, 2) <= 2
+  end-do
+
+
+
+  ! Bologna Fortitudo e Bologna Virtus non possono giocare entrambe in casa nella stessa giornata di campionato
+  ! lo stesso vale per le squadre Milano e Cantù
+  forall(g in GIORNATE) do
+    sum(s1, s2 in SQUADRE) (x(1, s1, g, 1) + x(2, s2, g, 1)) <= 1
+    sum(s1, s2 in SQUADRE) (x(4, s1, g, 1) + x(5, s2, g, 1)) <= 1
+  end-do
+
+
+
+  ! non si può disputare più di un big match a giornata
+  forall(g in GIORNATE) do
+    sum(i in I, j, k in [2, 3, 5, 6] | j <> k) x(j, k, g, i) <= 2 ! perché x(j, k, g, i) e x(k, j, g, i) valgono entrambi 1
+  end-do
+
+
+  ! determiniamo la giornata di andata e la giornata di ritorno
+  forall(s1, s2 in SQUADRE | s1 <> s2) do
+    sum(i in I, g in ANDATA)  x(s1, s2, g, i) * g = giornata_andata (s1, s2)
+    sum(i in I, g in RITORNO) x(s1, s2, g, i) * g = giornata_ritorno(s1, s2)
+  end-do
+
+
+
+  ! tra la giornata di andata e la giornata di ritorno deve esserci uno scarto di almeno cinque giorni
+  forall(s1, s2 in SQUADRE | s1 <> s2) giornata_ritorno(s1, s2) - giornata_andata(s1, s2) >= 5
+
+  maximise(giornata_andata(1, 2)-giornata_ritorno(1, 2))
+
+
+
+end-model

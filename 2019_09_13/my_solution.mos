@@ -1,0 +1,70 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMBER_OF_PARTNERS = 2
+    NUMBER_OF_TASKS    = 3
+    NUMBER_OF_DAYS     = 7
+  end-parameters
+
+  declarations
+
+    PARTNERS = 1..NUMBER_OF_PARTNERS
+    TASKS    = 1..NUMBER_OF_TASKS
+    DAYS     = 1..NUMBER_OF_DAYS
+
+    DTP_GAIN    : array(DAYS, TASKS, PARTNERS)  of integer
+    DTP_COST    : array(DAYS, TASKS, PARTNERS)  of integer
+    TASK_TIME   : array(TASKS)                  of integer
+    TASK_BONUS  : array(TASKS, TASKS)           of integer
+    ADDED_GAIN  : array(TASKS)                  of integer
+
+    ! indica se la mansione m è stata fatta dal socio s nella giornata g
+    y: array(DAYS, TASKS, PARTNERS) of mpvar
+
+    ! indica a quale mansione si è passati nel giorno g
+    z: array(2..NUMBER_OF_DAYS, TASKS, TASKS, PARTNERS) of mpvar
+
+    ! indica se la mansione m nel giorno d è stata svolta da entrambi i soci
+    x: array(DAYS, TASKS) of mpvar
+
+  end-declarations
+
+  forall(d in DAYS, t      in TASKS, p in PARTNERS) y(d, t, p)      is_binary
+  forall(d in 2..7, t1, t2 in TASKS, p in PARTNERS) z(d, t1, t2, p) is_binary
+  forall(d in DAYS, t      in TASKS)                x(d, t)         is_binary
+
+  TASK_BONUS  :: [ 0, 60, 20,
+                  60,  0, 20,
+                  20, 20,  0]
+
+  ADDED_GAIN  :: [30, 50, 30]
+
+  TASK_TIME   :: [1, 1, 4]
+
+  DTP_GAIN    :: [100, 90, 60, 90, 70, 60, 60, 100, 60, 70, 80, 60, 90, 60, 60, 100, 100, 60, 120, 100, 60,
+                   80, 75, 60, 75, 80, 60, 70,  70, 60, 70, 90, 60, 80, 80, 60, 100,  90, 60, 150, 150, 60]
+
+  DTP_COST    :: [70, 70, 90, 80, 50, 90, 30, 50, 90, 50, 70, 90, 50, 30, 90, 30, 40, 90, 40, 60, 90,
+                  50, 30, 90, 50, 50, 90, 30, 50, 90, 20, 60, 90, 40, 60, 90, 40, 60, 90, 60, 40, 90]
+
+  ! ogni giorno ciascun socio può svolgere al più una mansione
+  forall(p in PARTNERS, d in DAYS) sum(t in TASKS) y(d, t, p) = 1
+
+  ! tutti i soci devono svolgere almeno una volta tutte le mansioni
+  forall(t in TASKS, p in PARTNERS) sum(d in DAYS)  y(d, t, p) >= TASK_TIME(t)
+
+  ! dobbiamo determinare quale mansione è stata svolta nel giorno g e quale nel giorno g-1
+  forall(d in 2..7, t1, t2 in TASKS, p in PARTNERS) do
+    z(d, t1, t2, p) <= y(d, t1, p)
+    z(d, t1, t2, p) <= y(d-1, t2, p)
+  end-do
+
+  ! per ogni partner e per ogni giorno un qualche task deve essere eseguito
+  forall(p in PARTNERS, d in 2..7) sum(t1, t2 in TASKS) z(d, t1, t2, p) = 1
+
+
+
+
+end-model

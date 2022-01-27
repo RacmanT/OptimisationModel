@@ -1,0 +1,71 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    SCENARI = 1..4
+    SERVIZI = 1..3
+    CONSULENTI = 1..5
+    
+    RICHIESTE : array(SERVIZI, SCENARI) of integer
+    
+    COSTO_CONSULENTE : array(CONSULENTI) of integer
+    DURATA_CONSULENTE : array(CONSULENTI) of integer
+    TEMPO_GESTIONE : array(SERVIZI, CONSULENTI) of integer
+    
+    PENALITA : array(SERVIZI) of integer
+    
+    x:array(CONSULENTI) of mpvar
+    
+    y: array(CONSULENTI, SERVIZI) of mpvar
+    
+    costo_scenario: array(SCENARI) of mpvar
+    costo_richieste_non_gestite: array(SCENARI, SERVIZI) of mpvar
+    costo_peggiore: mpvar
+    
+  end-declarations
+
+  writeln("Begin running model")
+  
+  forall(c in CONSULENTI) x(c) is_binary
+  forall(c in CONSULENTI, s in SERVIZI) y(c, s) is_integer
+  forall(s in SCENARI) costo_scenario(s) is_integer
+  forall(sc in SCENARI, s in SERVIZI) costo_richieste_non_gestite(sc, s) is_integer
+  costo_peggiore is_integer
+  
+  
+  RICHIESTE :: [16, 14, 14, 12,
+                14, 18, 13, 14,
+                11, 10, 12, 15]
+
+  TEMPO_GESTIONE :: [35, 40, 30, 50, 35,
+                     45, 40, 35, 40, 35,
+                     60, 45, 55, 50, 40]
+
+  PENALITA          :: [150, 100, 200]
+  COSTO_CONSULENTE  :: [500, 600, 400, 550, 700]
+  DURATA_CONSULENTE :: [300, 360, 300, 360, 420]
+  
+  forall(c in CONSULENTI) sum(s in SERVIZI) y(c, s) * TEMPO_GESTIONE(s,c) <= DURATA_CONSULENTE(c) * x(c)
+  
+
+  forall(sc in SCENARI, s in SERVIZI) sum(c in CONSULENTI) y(c, s)  <=RICHIESTE(s,sc)
+  
+  
+  forall(sc in SCENARI, s in SERVIZI) do
+    costo_richieste_non_gestite(sc, s) = PENALITA(s)*(RICHIESTE(s,sc) - sum(c in CONSULENTI)y(c,s))
+  end-do
+
+  
+  forall(sc in SCENARI) do
+  costo_scenario(sc) = sum(c in CONSULENTI)x(c)*COSTO_CONSULENTE(c) + sum(s in SERVIZI)costo_richieste_non_gestite(sc, s)
+  end-do
+  
+  forall(sc in SCENARI) costo_scenario(sc) <= costo_peggiore
+  
+  
+  minimise(costo_peggiore)
+  writeln("Costo peggiore ", getobjval)
+  writeln("End running model")
+end-model
