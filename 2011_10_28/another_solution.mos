@@ -1,0 +1,91 @@
+model ModelName
+
+  uses "mmxprs"
+
+  parameters
+
+    NUMERO_DI_OGGETTI = 8
+    NUMERO_DI_TIPOLOGIE_DI_SCATOLE = 5
+
+    CARICO_MASSIMO_PRIMO_FURGONE = 100
+    CARICO_MASSIMO_SECONDO_FURGONE = 80
+
+  end-parameters
+
+  declarations
+
+    OGGETTO           = 1..NUMERO_DI_OGGETTI
+    TIPOLOGIA_SCATOLA = 1..NUMERO_DI_TIPOLOGIE_DI_SCATOLE
+
+    PESO      : array (OGGETTO)           of integer
+    VALORE    : array (OGGETTO)           of integer
+    PESO_MAX  : array (TIPOLOGIA_SCATOLA) of integer
+
+    VINCOLO : array(OGGETTO) of linctr
+
+
+    ! x(i, j) indica se l'oggetto i viene inserito nella scatola j
+    x: array(OGGETTO, TIPOLOGIA_SCATOLA) of mpvar
+
+    ! y(k) indica se una certa tipologia di scatola è o meno utilizzata
+    y: array(TIPOLOGIA_SCATOLA) of mpvar
+
+    ! z(i) indica se l'oggetto i è trasportato
+    z: array(OGGETTO) of mpvar
+
+  end-declarations
+
+  forall(t in TIPOLOGIA_SCATOLA) y(t) is_binary
+  forall(o in OGGETTO) z(o) is_binary
+  forall(o in OGGETTO, t in TIPOLOGIA_SCATOLA) x(o, t) is_binary
+
+    PESO     :: [10, 15, 17, 7,  9, 13, 4, 20]
+    VALORE   :: [ 6, 20, 15, 7, 12, 17, 8, 14]
+
+    PESO_MAX :: [15, 20, 30, 35, 40]
+
+
+  ! vincoli
+
+  ! ogni oggetto deve essere messo in una ed una sola scatola
+  forall(o in OGGETTO) vincoli(o):= sum(t in TIPOLOGIA_SCATOLA) x(o, t) = 1
+
+  ! ogni scatola non può avere un peso superiore al suo massimo
+  forall(t in TIPOLOGIA_SCATOLA) sum(o in OGGETTO) PESO(o) * x(o, t) <= PESO_MAX(t)
+
+  ! dobbiamo minimizzare il numero di scatole utilizzate
+  forall(o in OGGETTO, t in TIPOLOGIA_SCATOLA) x(o, t) <= y(t)
+  forall(o in OGGETTO, t in TIPOLOGIA_SCATOLA) x(o, t) <= z(o)
+
+  ! il furgone ha una capacità massima
+  sum(o in OGGETTO) PESO(o) * z(o) <= 100
+
+  minimise(sum(t in TIPOLOGIA_SCATOLA) y(t))
+
+  writeln("Numero scatole acquistate ",  getobjval)
+  forall(t in TIPOLOGIA_SCATOLA) do
+    if(getsol(y(t)) = 1) then
+      writeln("La scatola ", t, " è stata acquistata")
+    end-if
+  end-do
+
+  ! -----------------------------------------------
+
+  sum(o in OGGETTO) PESO(o) * z(o) <= CARICO_MASSIMO_SECONDO_FURGONE
+  forall(o in OGGETTO) sethidden(vincoli(o), true)
+
+  maximise(sum(o in OGGETTO, t in TIPOLOGIA_SCATOLA) x(o, t) * VALORE(o) )
+
+  writeln("Numero scatole acquistate ",  getobjval)
+  forall(t in TIPOLOGIA_SCATOLA) do
+    if(getsol(y(t)) = 1) then
+      writeln("La scatola ", t, " è stata acquistata")
+    end-if
+  end-do
+
+
+
+
+
+
+end-model

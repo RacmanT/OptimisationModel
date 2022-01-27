@@ -1,0 +1,58 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+
+  parameters
+    NUMERO_LIBRI       = 15
+    NUMERO_SCAFFALI    = 15
+    LARGHEZZA_LIBRERIA = 26
+  end-parameters
+
+  declarations
+
+    LIBRI    = 1..NUMERO_LIBRI
+    SCAFFALI = 1..NUMERO_SCAFFALI
+
+
+    LARGHEZZA_LIBRI : array(LIBRI) of integer
+    ALTEZZA_LIBRI   : array(LIBRI) of integer
+
+    ! indica in quale scaffale è stato inserito il libro
+    x: array(LIBRI, SCAFFALI) of mpvar
+
+    ! indica se uno scaffale è stato utilizzato
+    y: array(SCAFFALI) of mpvar
+
+    ! indica l'altezza dello scaffale
+    z: array(SCAFFALI) of mpvar
+
+  end-declarations
+
+    forall(s in SCAFFALI)             y(s)    is_binary
+    forall(s in SCAFFALI)             z(s)    is_integer
+    forall(l in LIBRI, s in SCAFFALI) x(l, s) is_binary
+
+    ALTEZZA_LIBRI   :: [ 2, 10, 10, 10, 8, 12, 18,  9, 15, 13, 8, 7,  7, 10, 5]
+    LARGHEZZA_LIBRI :: [10, 22, 20,  5, 8,  7, 15, 11,  9, 10, 7, 9, 12,  5, 6]
+
+    ! ogni libro può essere inserito in un unico scaffale
+    forall(l in LIBRI) sum(s in SCAFFALI) x(l, s) = 1
+
+    ! ogni scaffale non può contenere più libri di quanto propone la sua larghezza
+    forall(s in SCAFFALI) sum(l in LIBRI) x(l, s) * LARGHEZZA_LIBRI(l) <= LARGHEZZA_LIBRERIA * y(s)
+
+    ! un libro può essere messo in uno scaffale se quest'ultimo viene utilizzato
+    ! forall(l in LIBRI, s in SCAFFALI) x(l, s) <= y(s)
+
+    ! altezza scaffale
+    forall(s in SCAFFALI, l in LIBRI) z(s) >= x(l, s) * ALTEZZA_LIBRI(l)
+    ! forall(s in SCAFFALI) z(s) <= y(s) * 18
+
+
+    minimise(sum(s in SCAFFALI) z(s))
+    writeln("Costo totale ", getobjval)
+
+    forall(s in SCAFFALI) writeln("Altezza scaffale s = ", s, " ", getsol(z(s)))
+
+end-model

@@ -1,0 +1,59 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+!sample declarations section
+declarations
+ mesi = 1..12
+ M = 1..2
+
+ L: array(mesi) of integer
+ D: array(mesi) of integer
+
+ a: array(M) of integer
+ l: array(M) of integer
+
+ x: array(M,mesi) of mpvar
+ y: array(M,mesi) of mpvar
+
+end-declarations
+
+a::[30,30]
+l::[15,10]
+
+L::[17,21,22,20,22,21,21,22,22,21,21,15]
+D::[30,40,35,50,45,50,30,20,40,50,45,30]
+
+forall(m in M, t in mesi) do
+	x(m,t) is_integer
+	y(m,t) is_binary
+end-do
+
+forall(m in M, t in mesi) x(m,t) <= a(m)*y(m,t)
+
+forall(t in mesi) do
+	sum(m in M) x(m,t) >= D(t)
+	sum(m in M) (l(m)/a(m))*x(m,t) <= L(t)
+end-do
+
+forall(m in M) sum(t in mesi) y(m,t) <= 10
+
+y(1,7)+y(2,7) <= 1
+y(1,8)+y(2,8) <= 1
+
+costo := 0
+
+minimize(costo)
+
+
+forall(m in M, t in mesi) do
+!if getsol(x(m,t)) > 0 then
+	writeln("x(",m," ",t,")=",getsol(x(m,t)))
+!end-if
+end-do
+
+writeln("Obj=",getobjval)
+
+
+writeln("End running model")
+
+end-model

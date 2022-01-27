@@ -1,0 +1,51 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    CANTIERI = 1..3
+    CAMION = 1..5
+    
+    
+    COSTO_NOLEGGIO_CAMION : array(CAMION) of integer
+    TONDINI_OFFERTA : array(CANTIERI) of integer
+    TONDINI_RICHIESTA : array(CANTIERI) of integer
+    
+    COSTO : array(CANTIERI, CANTIERI) of integer
+    
+    x: array(CANTIERI, CANTIERI) of mpvar
+    y: array(CANTIERI, CANTIERI) of mpvar
+    z: array(CAMION) of mpvar
+    
+    
+  end-declarations
+
+  writeln("Begin running model")
+    
+    forall(c1,c2 in CANTIERI) x(c1,c2) is_binary
+    forall(c1,c2 in CANTIERI) y(c1,c2) is_integer
+    forall(c in CAMION) z(c) is_binary
+    
+    COSTO :: [9, 6, 5,
+	            7, 4, 9,
+              4, 6, 3]
+
+    TONDINI_OFFERTA  :: [7000, 6000, 4000]
+    TONDINI_RICHIESTA:: [8000, 5000, 4000] 
+    COSTO_NOLEGGIO_CAMION :: [50, 50, 50, 50, 65]
+    
+    forall(c_old, c_new in CANTIERI) y(c_old, c_new) <= TONDINI_OFFERTA(c_old) * x(c_old, c_new)
+    forall(c_old in CANTIERI) sum(c_new in CANTIERI) y(c_old, c_new) <= TONDINI_OFFERTA(c_old) 
+    forall(c_new in CANTIERI) sum(c_old in CANTIERI) y(c_old, c_new) = TONDINI_RICHIESTA(c_new)
+    
+    sum(c_old, c_new in CANTIERI) x(c_old, c_new) = sum(c in CAMION) z(c)
+    
+    x(1, 2) + x(2, 2) <= 1
+    
+    4 * z(5) <= sum(c in 1..4) z(c)
+    
+    minimise(sum(c_old, c_new in CANTIERI)y(c_old, c_new)*COSTO(c_old,c_new)*0.01 + sum(c in CAMION)z(c)*COSTO_NOLEGGIO_CAMION(c) )
+    writeln(getobjval)
+  writeln("End running model")
+end-model

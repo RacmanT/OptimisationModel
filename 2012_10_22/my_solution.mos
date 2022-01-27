@@ -1,0 +1,96 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMBER_OF_ACTIVITIES = 20
+    BUDGET               = 1000
+  end-parameters
+
+  declarations
+
+    ACTIVITIES = 1..NUMBER_OF_ACTIVITIES
+
+    ACTIVITY_DURATION       : array(ACTIVITIES) of integer
+    ACTIVITY_DURATION_SHORT : array(ACTIVITIES) of integer
+    ACTIVITY_COST           : array(ACTIVITIES) of integer
+
+    PREDECESSORS            : array(ACTIVITIES, ACTIVITIES) of integer
+
+    ! t indica l'istante di tempo, discreto, con cui finisce l'attività j-esima
+    t: array(ACTIVITIES) of mpvar
+
+    ! x indica se viene scelto il tempo standard
+    x: array(ACTIVITIES) of mpvar
+
+    ! y indica se viene scelto il tempo ridotto
+    y: array(ACTIVITIES) of mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall (a in ACTIVITIES) t(a) is_integer
+  forall (a in ACTIVITIES) x(a) is_binary
+  forall (a in ACTIVITIES) y(a) is_binary
+
+  ACTIVITY_DURATION       ::  [ 80, 20, 37, 28, 39, 18,  78,  96, 46, 34, 29, 27, 10,  8,  6, 12,  8, 10,  6, 0]
+  ACTIVITY_DURATION_SHORT ::  [ 75, 15, 30, 26, 33, 12,  65,  82, 40, 26, 20, 25,  8,  6,  5, 10,  8,  8,  6, 0]
+  ACTIVITY_COST           ::  [100, 20, 40, 35, 40, 20, 150, 240, 50, 46, 37, 35, 32, 10, 15, 17, 10, 15, 10, 0]
+
+  PREDECESSORS::[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+            	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
+
+  ! l'istante in cui comincia l'attività j-esima è successiva a all'inizio della sua precedente sommata alla sua durata
+  forall (a1, a2 in ACTIVITIES | a1 > a2) do
+    t(a1) >= PREDECESSORS(a1, a2) * t(a2) + ACTIVITY_DURATION(a1)
+  end-do
+
+  t(1) = ACTIVITY_DURATION(1)
+
+  minimise(t(20))
+
+
+  writeln("Begin running model - I Part")
+  writeln("Result ", getobjval)
+  writeln("Begin running model - I Part")
+
+  ! ----------------------------------------------------
+  ! uno dei due tempi deve essere scelto
+  forall (a in ACTIVITIES) x(a) + y(a) = 1
+
+  ! l'istante in cui comincia l'attività j-esima è successiva a all'inizio della sua precedente sommata alla sua durata
+  forall (a1, a2 in ACTIVITIES | a1 > a2) do
+    t(a1) >= PREDECESSORS(a1, a2) * t(a2) + ACTIVITY_DURATION(a1) * x(a1) + ACTIVITY_DURATION_SHORT(a1) * y(a1)
+  end-do
+
+  ! il budget dell'azienda è limitato
+  sum(a in ACTIVITIES) ( ACTIVITY_DURATION(a) - ACTIVITY_DURATION_SHORT(a) ) * y(a) * ACTIVITY_COST (a) <= BUDGET
+
+  ! funzione obiettivo
+  minimise(t(20))
+
+  writeln("Begin running model - II Part")
+  writeln("Result ", getobjval)
+  forall (a in ACTIVITIES) writeln(getsol(x(a)), " ", getsol(y(a)))
+  writeln(sum(a in ACTIVITIES) (ACTIVITY_DURATION(a) - ACTIVITY_DURATION_SHORT(a)) * ACTIVITY_COST(a) * getsol(y(a)))
+  writeln("Begin running model - II Part")
+
+end-model

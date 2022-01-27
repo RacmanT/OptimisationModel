@@ -1,0 +1,57 @@
+!@encoding CP1252
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+	declarations
+		TEAM = 1..4
+		NAME			:	array(TEAM) 	 of string
+		V				:	array(TEAM) 	 of integer
+		SCONTRIDIRETTI	:	array(TEAM,TEAM) of integer
+		x:array(TEAM,TEAM) of mpvar  !x(i,j):numero vittorie della squadra i negli scontri diretti con la squadra j
+		z:array(TEAM, TEAM) of mpvar !z(i,j): 1, se la squadra i-esima ha un numero maggiore o uguale di vittorie della squadra j-esima
+		                             !        0, altrimenti
+		v:array(TEAM) of mpvar       !v(i): numero di vittorie della squadra i-esima
+
+	end-declarations
+
+	NAME::["Atlanta", "Philadelphia", "New York", "Montreal"]
+
+	V::[83,80,78,77]
+
+	SCONTRIDIRETTI::[0,1,6,1,
+		             1,0,0,2,
+		             6,0,0,0,
+		             1,2,0,0]
+
+	forall(i,j in TEAM)	do
+		x(i,j) is_integer
+		x(i,j) + x(j,i) = SCONTRIDIRETTI(i,j)
+		z(i,j) is_binary
+	end-do
+
+
+	forall(i in TEAM) v(i) = V(i) + sum(k in TEAM) x(i,k)
+
+	forall(i in TEAM) z(i,i) = 0
+
+	forall(i,j in TEAM | i <> j) do
+		v(i)  >= v(j) - 100 * (1-z(i,j))
+		v(i)  <= v(j) + 100 * z(i,j)
+	end-do
+
+	forall(i in TEAM) Posizione(i):= 4 - sum(j in TEAM)z(i,j)
+
+	! minimize(Posizione(4))
+
+! end-model
+
+forall(i in TEAM) do
+	minimize(Posizione(i))
+	if(getobjval > 1)
+		then writeln("La squadra di ", NAME(i), " NON puo' piu' terminare la stagione con il massimo numero di vittorie")
+	else writeln("La squadra di ", NAME(i), "     puo' ancora terminare la stagione con il massimo numero di vittorie")
+	end-if
+
+end-do
+
+end-model

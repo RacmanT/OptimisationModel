@@ -1,0 +1,44 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+
+  declarations
+
+    FREQUENZE = 1..6
+    STAZIONI    = 1..10
+
+    A: array (STAZIONI, STAZIONI) of integer
+    
+    x: array(STAZIONI, FREQUENZE) of mpvar
+    y: array(FREQUENZE, FREQUENZE) of mpvar 
+
+
+  end-declarations
+
+  forall(s in STAZIONI, f in FREQUENZE)   x(s,f)    is_binary
+
+  A ::  [0, 1, 0, 0, 0, 0, 0, 2, 0, 0,
+         1, 0, 2, 0, 2, 0, 0, 0, 0, 1,
+         0, 2, 0, 4, 0, 0, 0, 0, 0, 1,
+         0, 0, 4, 0, 2, 0, 0, 0, 0, 0,
+         0, 2, 0, 2, 0, 3, 0, 0, 0, 4,
+         0, 0, 0, 0, 3, 0, 1, 0, 0, 0,
+         0, 0, 0, 0, 0, 1, 0, 1, 0, 2,
+         2, 0, 0, 0, 0, 0, 1, 0, 2, 0,
+         0, 0, 0, 0, 0, 0, 0, 2, 0, 3,
+         0, 1, 1, 0, 4, 0, 2, 0, 3, 0]
+
+
+  forall(f in FREQUENZE) sum(s in STAZIONI) x(s, f) = 1
+  forall(s in STAZIONI) sum(f in FREQUENZE) x(s,f) >= 0
+  
+  forall(f1,f2 in FREQUENZE, s1,s2 in STAZIONI) do
+  f1*x(s1,f1) - f2*x(s2,f2) >= A(s1,s2) - MAX_INT * (1 - y(f1,f2))
+  f1*x(s1,f1) - f2*x(s2,f2) <= A(s1,s2) + MAX_INT * y(f1,f2)
+
+  end-do
+  
+  minimize(sum(s in STAZIONI, f in FREQUENZE) x(s,f))
+
+end-model

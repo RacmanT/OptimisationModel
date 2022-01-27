@@ -1,0 +1,62 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    FREQUENZE = 1..6
+    STAZIONI = 1..10
+
+    DIFFERENZA : array(STAZIONI, STAZIONI) of integer
+
+    !frequenza viene usata
+    x:array(FREQUENZE) of mpvar
+
+    !frequenza viene assegnata
+    y:array(FREQUENZE, STAZIONI) of mpvar
+
+
+    z:array(STAZIONI, STAZIONI) of mpvar
+  end-declarations
+
+  writeln("Begin running model")
+
+  DIFFERENZA::[0, 1, 0, 0, 0, 0, 0, 2, 0, 0,
+            	 0, 0, 2, 0, 2, 0, 0, 0, 0, 1,
+	             0, 0, 0, 4, 0, 0, 0, 0, 0, 1,
+	             0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+	             0, 0, 0, 0, 0, 3, 0, 0, 0, 4,
+             	 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+	             0, 0, 0, 0, 0, 0, 0, 1, 0, 2,
+	             0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
+   	           0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+	             0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+
+  forall(f in FREQUENZE, s in STAZIONI) y(f, s) is_binary
+  forall(s1,s2 in STAZIONI) z(s1, s2) is_binary
+  forall(f in FREQUENZE) x(f) is_binary
+
+
+  forall(f in FREQUENZE) sum(s in STAZIONI) y(f, s) <= 10 * x(f)
+  forall(s in STAZIONI) sum(f in FREQUENZE) y(f, s) = 1
+
+
+
+  forall(f1, f2 in FREQUENZE, s1, s2 in STAZIONI | f1<f2) do
+    f1*y(f1,s1) - f2*y(f2, s2) >= DIFFERENZA(s1,s2) - MAX_INT * (1-z(s1,s2))
+    f1*y(f1,s1) - f2*y(f2, s2) <= DIFFERENZA(s1,s2) + MAX_INT * z(s1,s2)
+  end-do
+
+
+  minimise(sum(f in FREQUENZE) x(f))
+  writeln("Numero frequenze utilizzate ", getobjval)
+
+  forall(s in STAZIONI, f in FREQUENZE) do
+    if getsol(y(f, s)) > 0 then
+  	  writeln("y(", f, ", ", s, ") = ", getsol(y(f, s)))
+    end-if
+  end-do
+
+  writeln("End running model")
+end-model

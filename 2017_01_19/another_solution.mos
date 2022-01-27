@@ -1,0 +1,71 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUMERO_SQUADRE = 4
+  end-parameters
+
+  declarations
+
+    SQUADRE = 1..NUMERO_SQUADRE
+
+    VITTORIE  : array(SQUADRE) of integer
+    DA_GIOCARE: array(SQUADRE) of integer
+    SCONTRI_DIRETTI : array(SQUADRE, SQUADRE) of integer
+
+    ! se una squadra s1 ha più vittorie di una squadra s2
+    x: array(SQUADRE, SQUADRE) of mpvar
+
+    ! quante volte la squadra s1 ha vinto contro l'altra squadra s2
+    y: array(SQUADRE, SQUADRE) of mpvar
+
+    ! numero vittorie della squadra s
+    z: array(SQUADRE) of mpvar
+
+    ! posizione della squadra all'interno del campionato
+    p: array(SQUADRE) of mpvar
+
+  end-declarations
+
+    forall(s in SQUADRE)      p(s)      is_integer
+    forall(s in SQUADRE)      z(s)      is_integer
+    forall(s1, s2 in SQUADRE) x(s1, s2) is_binary
+    forall(s1, s2 in SQUADRE) y(s1, s2) is_integer
+
+    VITTORIE    :: [83, 80, 78, 77]
+
+    DA_GIOCARE  :: [8, 3, 6, 3]
+
+    SCONTRI_DIRETTI :: [0, 1, 6, 1,
+                        1, 0, 0, 2,
+                        6, 0, 0, 0,
+                        1, 2, 0, 0]
+
+    ! TODO: ridondante?
+    ! forall(s1 in SQUADRE) sum(s2 in SQUADRE) y(s1, s2) <= DA_GIOCARE(s1)
+
+    ! TODO: aggiungi | s1 > s2, la matrice SCONTRI_DIRETTI è simmetrica
+    forall(s1 in SQUADRE, s2 in SQUADRE) y(s1, s2) + y(s2, s1) = SCONTRI_DIRETTI(s1, s2)
+
+    ! calcolo numero vittorie per ogni squadra
+    forall(s in SQUADRE) z(s) = sum(s1 in SQUADRE) y(s, s1) + VITTORIE(s)
+
+    ! determiniamo chi ha più punti
+    forall(s1, s2 in SQUADRE) z(s1) - z(s2) >= - MAX_INT * (1 - x(s1, s2))
+    forall(s1, s2 in SQUADRE) z(s1) - z(s2) <= MAX_INT * x(s1, s2)
+
+
+    !
+    forall(s in SQUADRE) p(s) = 4 - sum(s1 in SQUADRE | s1 <> s) x(s, s1)
+
+    ! minimise(p(1))
+    ! writeln("Posizione massima raggiungibile dalla squadra ", 1, " ", getobjval) 
+
+    forall(s in SQUADRE) do
+      minimise(p(s))
+      writeln("Posizione massima raggiungibile dalla squadra ", s, " ", getobjval) 
+    end-do
+
+end-model

@@ -1,0 +1,37 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+
+  parameters
+    NUMERO_DI_MINERALI = 6
+    NUMERO_DI_SCATOLE = 6
+  end-parameters
+
+  declarations
+
+    SCATOLE = 1..NUMERO_DI_SCATOLE
+    MINERALI = 1..NUMERO_DI_MINERALI
+
+
+    ! indica se la scatola s viene utilizzata
+    y: array(SCATOLE) of mpvar
+
+    ! indica se il minerale m è nella scatola s
+    x: array(MINERALI, SCATOLE) of mpvar
+
+    ! numero minimo di scomparti utilizzati (punto 1)
+    z: mpvar
+
+
+  end-declarations
+
+  z is_integer
+
+  forall(s in SCATOLE)                y(s)    is_binary
+  forall(s in SCATOLE, m in MINERALI) x(m, s) is_binary
+  
+  
+  forall(s in SCATOLE) sum(m in MINERALI) x(m,s) <= NUMERO_DI_MINERALI*y(s)
+  
+end-model

@@ -1,0 +1,46 @@
+!@encoding CP1252
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+	declarations
+		I=1..4
+		J=1..4
+		V:array(I) of integer !Vittorie
+		ScontriDiretti:array(I,J) of integer !Scontri diretti
+		
+		X:array(I,J) of mpvar						! Vittorie della squadra i vs la squadra j negli scontri diretti
+		Y:array(J) of mpvar							! 1 se la squdra i non può arrivare al numero max di vittorie, 0 se si'
+		Vittorie_tot:array(I) of mpvar	! Vittorie fatte dalla squadra i negli scontri diretti
+		Z:array(J) of mpvar							! Vittorie che servirebbero alla squadra i per riuscire ad arrivare al numero max di vittorie
+		
+		Nome:array(I) of string !Nomi delle squadre
+	  Objective:linctr
+	end-declarations
+
+	ScontriDiretti::[0,1,6,1,
+									 1,0,0,2,
+									 6,0,0,0,
+									 1,2,0,0]
+	
+	V::[83,80,78,77]
+	
+	Nome::["Atlanta","Philadelphia", "New York", "Montreal"]
+	
+	forall(i in I, j in J) X(i,j) is_integer
+	forall(j in J) Y(j) is_binary
+	
+	forall(i in I, j in J) X(i,j)+X(j,i)=ScontriDiretti(i,j) !Vittorie di i vs j + vittorie j vs i = nr di scontri diretti
+	forall(i in I) Vittorie_tot(i)= V(i) + sum(j in J) X(i,j) ! Vittorie della squadra i = vittorie gia' ottenute + vittorie in tutti gli scontri diretti
+	
+	forall(j in J) do !Ogni squadra prova a fare il numero di vittorie più grande di ogni altra squadra
+	forall(i in I) Vittorie_tot(j) + Z(j)>= Vittorie_tot(i) !Se non ce la fa, allora c'e' l'aiuto da casa, cioè Z
+	end-do
+	
+	forall(j in J) Z(j)<=Y(j)*20 !Se la squadra j ha bisogno di un Z>0 vuol dire che non ha la possibilità di arrivare al numero max di vittorie
+	
+	minimize(sum(j in J) Y(j)) !Cerco il numero minimo di squadre che non riescono ad arrivare al max numero di vittorie
+
+	forall(j in J | getsol(Y(j))<1) do
+		writeln("La squadra "+Nome(j)+ " pu� vincere per numero di vittorie")
+	end-do
+end-model

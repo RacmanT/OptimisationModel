@@ -1,0 +1,132 @@
+
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+forward procedure printSolution
+
+ declarations
+ 	NC = 7  							!numero clienti
+  	CLIENTI = 1..NC
+  	NODI = 0..NC                       	! 0=magazzino + clienti
+  	MEZZI = 1..3
+
+  	xN: array(NODI) of integer			! coordinate del cliente o del magazzino
+  	yN: array(NODI) of integer
+
+  	DIST: array(NODI,NODI) of real 		! Distanze tra nodi
+  	INCENTIVO: array(NODI,NODI,MEZZI) of real 		! Sconto del prezzo chilometrico della strada che lega n1 e n2 per il mezzo m
+
+
+  	CostF: array(MEZZI) of real          ! Costo fisso per l'utilizzo del mezzo m
+  	CostKM: array(MEZZI) of real        ! Costo per chilometro percorso dal mezzo m
+
+  	x: array(NODI, NODI, MEZZI) of mpvar   ! 1 se il mezzo m visita il nodo n2, subito dopo aver visitato il nodo n1
+                                      		! 0 altrimenti
+
+  	y: array(MEZZI) of mpvar       			! 1 se il mezzo m � utilizzato per la consegna
+                                      		! 0 altrimenti
+
+	level: array(CLIENTI) of mpvar      ! numero di salti per collegare il cliente c al magazzino
+									!set di variabili utilizzato per evitare sottocicli
+
+	vinc: array(NODI, NODI) of linctr  !vincoli utilizzati nella secondaq parte del problema
+ end-declarations
+
+ xN::[0,3,5,12,10,-2,-12,-8]
+
+ yN::[0,-12,9,-8,4,17,5,-21]
+
+ !calcolo della distanza tra nodi
+
+forall(i in NODI,j in NODI) DIST(i,j) := sqrt((xN(i)-xN(j))^2 + (yN(i)-yN(j))^2)
+
+ CostF::[20, 10, 28]
+ CostKM::[0.16, 0.25, 0.09]
+
+
+
+forall(m in MEZZI) do
+	y(m) is_binary
+	forall(i in NODI, j in NODI) x(i,j,m) is_binary
+end-do
+
+sum(m in MEZZI) y(m) = 1					! deve essere utilizzato un solo mezzo
+
+forall(m in MEZZI, i in NODI) do
+	sum(j in NODI | j<>i) x(i,j,m) = y(m)     ! ogni nodo ha un unico nodo che lo precede e un unico nodo che lo segue nel percorso del mezzo m, se m viene utilizzato
+	sum(j in NODI | j<>i) x(j,i,m) = y(m)
+end-do
+
+!elimino tutti i possibili sottocicli che non passano per il magazzino
+
+forall(i in CLIENTI, j in CLIENTI, m in MEZZI) do
+	level(i) - level(j) + NC*x(i,j,m) <= NC -1
+end-do
+
+cost:= sum(m in MEZZI) (y(m)*CostF(m) + CostKM(m)*sum(i in NODI, j in NODI)(DIST(i,j)*x(i,j,m)))
+
+writeln("Begin running model #1 \n")
+
+minimize(cost)
+
+printSolution
+
+writeln("\nEnd running model #1\n")
+
+
+writeln("\nBegin running model #2\n")
+
+forall(i in NODI,j in NODI| DIST(i,j)<10) vinc(i,j):= x(i,j,2) = 0   ! il mezzo 2 non può percorrere strade con distanza inferiore a 10km
+
+minimize(cost)
+
+printSolution
+
+writeln("\nEnd running model #2\n")
+
+forall(i in NODI,j in NODI| DIST(i,j)<10) sethidden(vinc(i,j),true)  ! non vengono considerati i vincoli introdotti nela parte precedente
+
+forall(i in NODI,j in NODI, m in MEZZI) INCENTIVO(i,j,m):=1
+
+forall(i in NODI,j in NODI| DIST(i,j)<10) INCENTIVO(i,j,3):=0.25   ! il mezzo 3 percorre le strade con distanza inferiore a 10km con un costo del 20%
+
+
+
+cost:= sum(m in MEZZI) (y(m)*CostF(m) + CostKM(m)*sum(i in NODI, j in NODI)(DIST(i,j)*INCENTIVO(i,j,m)*x(i,j,m)))
+
+writeln("\nBegin running model #3\n")
+
+minimize(cost)
+
+printSolution
+
+writeln("\nEnd running model #3\n")
+
+
+procedure printSolution
+	writeln("costo totale: " + getsol(cost))
+
+	forall(m in MEZZI| getsol(y(m))=1) do
+
+		writeln("mezzo utilizzato : " + m)
+
+	    iN:=0
+	    writeln("(0)\tMagazzino")
+
+	    while(true) do
+			forall(n in NODI| getsol(x(iN,n,m))=1) do
+				writeln("(" + n +")\tDistanza: " + DIST(iN,n))
+				iN:= n
+				if(iN=0) then
+					break 2
+				end-if
+			end-do
+		end-do
+
+	end-do
+
+end-procedure
+
+
+
+end-model

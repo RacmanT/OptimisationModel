@@ -1,0 +1,60 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_MESI       = 12
+    NUMERO_MACCHINE   = 2
+    BOTTIGLIE_AL_MESE = 30
+    GIORNI_LAVORATIVI_MACCHINA_1 = 15 ! in giorni
+    GIORNI_LAVORATIVI_MACCHINA_2 = 10 ! in giorni
+  end-parameters
+
+  declarations
+
+    MESI     = 1..NUMERO_MESI
+    MACCHINE = 1..NUMERO_MACCHINE
+
+    DOMANDA           : array(MESI) of integer
+    GIORNI_LAVORATIVI : array(MESI) of integer
+
+    BOTTIGLIE_AL_GIORNO : array(MACCHINE) of integer
+
+
+    ! indica se la macchina mc nel mese ms è in funzione
+    x: array(MACCHINE, MESI) of mpvar
+
+    ! indica quanti giorni una macchina funziona in un certo mese
+    y: array(MACCHINE, MESI) of mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(mc in MACCHINE, ms in MESI) x(mc, ms) is_binary
+  forall(mc in MACCHINE, ms in MESI) y(mc, ms) is_integer
+
+  DOMANDA           :: [30, 40, 35, 50, 45, 50, 30, 20, 40, 50, 45, 30]
+  GIORNI_LAVORATIVI :: [17, 21, 22, 20, 22, 21, 21, 22, 22, 21, 21, 15]
+
+  BOTTIGLIE_AL_GIORNO :: [2, 3]
+
+  ! in un mese una macchina può lavorare non più dei giorni lavorativi disponibili in quel mese
+  forall(ms in MESI, mc in MACCHINE) y(mc, ms) <= GIORNI_LAVORATIVI(ms)
+  
+  ! una macchina può produrre bottiglie solo se quel mese è in funzione
+  forall(ms in MESI, mc in MACCHINE) y(mc, ms) * BOTTIGLIE_AL_GIORNO(mc) <= BOTTIGLIE_AL_MESE * x(mc, ms)
+
+  ! la domanda deve essere soddisfatta
+  forall(ms in MESI) sum(mc in MACCHINE) y(mc, ms) * BOTTIGLIE_AL_GIORNO(mc) >= DOMANDA(ms)
+
+  ! almeno due mesi una macchina deve rimanere ferma
+  forall(mc in MACCHINE) sum(ms in MESI) x(mc, ms) = 10
+
+  ! nei mesi di luglio e agosto al più una macchina può lavorare
+  sum(mc in MACCHINE) x(mc, 7) <= 1
+  sum(mc in MACCHINE) x(mc, 8) <= 1
+
+  minimise(sum(ms in MESI, mc in MACCHINE) y(mc, ms))
+  writeln("Valore funzione obiettivo ", getobjval)
+
+end-model

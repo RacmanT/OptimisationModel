@@ -1,0 +1,46 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMBER_OF_ITEMS = 8
+    NUMBER_OF_BOXES = 5
+    MAX_CAPACITY    = 100
+  end-parameters
+
+  declarations
+
+    ITEMS = 1..NUMBER_OF_ITEMS
+    BOXES = 1..NUMBER_OF_BOXES
+
+    BOX_CAPACITY  : array(BOXES) of integer
+    ITEM_VALUE    : array(ITEMS) of integer
+    ITEM_WEIGHT   : array(ITEMS) of integer
+
+    ! y indica se viene utilizzata o meno una scatola
+    y : array(BOXES)        of mpvar
+    ! x indica se un item i viene messo nel box b
+    x : array(ITEMS, BOXES) of mpvar
+
+    total_cost:  mpvar
+    total_value: mpvar
+    
+    hold_item:array(ITEMS) of linctr
+
+  end-declarations
+
+  forall (i in ITEMS, b in BOXES) x(i, b) is_binary
+  forall (b in BOXES)             y(b)    is_binary
+
+  BOX_CAPACITY    :: [15, 20, 30, 35, 40]
+  ITEM_WEIGHT     :: [10, 15, 17, 7,  9, 13, 4, 20]
+  ITEM_VALUE      :: [ 6, 20, 15, 7, 12, 17, 8, 14]
+
+  forall(b in BOXES) sum(i in ITEMS) x(i,b) <= BOX_CAPACITY(b) * y(b)
+  forall(i in ITEMS) sum(b in BOXES) x(i,b) = 1
+  sum(i in ITEMS, b in BOXES) x(i,b) * ITEM_WEIGHT(i) <= MAX_CAPACITY
+  minimize(sum(b in BOXES)y(b))
+  
+  
+
+end-model

@@ -1,0 +1,70 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUMERO_DI_NODI = 8
+  end-parameters
+
+  declarations
+
+    NODI = 1..NUMERO_DI_NODI
+
+    A: array(NODI, NODI) of integer
+
+    ! x indica se un certo arco viene utilizzato
+    x: array(NODI, NODI) of mpvar
+
+    ! y indica quante unità passano per un certo arco
+    y: array(NODI, NODI) of mpvar
+
+  end-declarations
+
+  forall(n1, n2 in NODI) do
+    x(n1, n2) is_binary
+    y(n1, n2) is_integer
+  end-do
+
+
+  A :: [0, 27, 20,  0,  0,  0, 0,  0,
+	      0,  0,  0, 19, 15,  0, 0,  0,
+	      0,  0,  0, 12,  0,  0, 9,  0,
+	      0,  0,  0,  0, 14, 16, 0,  0,
+	      0,  0,  0,  0,  0,  0, 0, 18,
+	      0,  0,  0,  0,  0,  0, 5, 10,
+	      0,  0,  0,  0,  0,  0, 0, 17,
+	      0,  0,  0,  0,  0,  0, 0,  0]
+
+
+  ! al massimo otto archi possono essere percorsi
+  sum(n1, n2 in NODI) x(n1, n2) <= 8
+
+  ! non possono passare più elementi della capacità dell'arco
+  forall(n1, n2 in NODI) y(n1, n2) <= A(n1, n2) * x(n1, n2)
+
+  sum(n in NODI) x(1, n) >= 1
+  sum(n in NODI) x(n, 8) >= 1
+
+  forall(n in NODI | n <> 1 and n <> 8) sum(n1 in NODI) y(n1, n) = sum(n1 in NODI) y(n, n1)
+
+  maximise(sum(n in NODI) y(n, 8))
+  writeln(getobjval)
+
+  forall (n, m in NODI) do
+  	if(getsol(x(n, m)) = 1) then
+  		writeln("y(", n,", ", m, ") = ", getsol(y(n, m)))
+  	end-if
+  end-do
+
+  sum(n in NODI) y(n, 8) = getobjval
+  minimise(sum(n1, n2 in NODI) x(n1, n2))
+  writeln(getobjval)
+  
+    forall (n, m in NODI) do
+  	if(getsol(x(n, m)) = 1) then
+  		writeln("x(", n,", ", m, ") = ", getsol(x(n, m)))
+  	end-if
+  end-do
+
+end-model

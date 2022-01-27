@@ -1,0 +1,97 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_DI_TRATTE = 4
+    NUMERO_DI_MEZZI = 3
+    CARICO = 20
+  end-parameters
+
+  forward procedure PrintMpvar
+
+  declarations
+
+    MEZZI = 1..NUMERO_DI_MEZZI
+    TRATTE = 1..NUMERO_DI_TRATTE
+
+    A : array(MEZZI, TRATTE) of integer
+    B : array(MEZZI, MEZZI) of integer
+
+
+    ! indica quale mezzo per quale tratta
+    x : array(MEZZI, TRATTE) of mpvar
+
+    ! indica quale cambio è avvenuto
+    y: array(MEZZI, MEZZI, 1..3) of mpvar
+
+    ! costo totale del trasporto
+    total_cost: mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall (m in MEZZI, t in TRATTE)      x(m, t) is_binary
+  forall (m1, m2 in MEZZI, t in 1..3)   y(m1, m2, t) is_binary
+
+  A ::  [30, 40, 30, 60,
+         20, 40, 50, 50,
+         40, 10, 60, 40]
+
+  B :: [ 1, 20, 20,
+        20,  1, 10,
+        20, 10,  1]
+
+
+  ! per ogni tratta viene utilizzato un solo mezzo
+  forall(t in TRATTE) sum(m in MEZZI) x(m, t) = 1
+
+
+  forall(m1, m2 in MEZZI, t in 1..3) do
+    y(m1, m2, t) >= x(m1, t) + x(m2, t + 1) - 1
+    y(m1, m2, t) <= x(m1, t)
+    y(m1, m2, t) <= x(m2, t + 1)
+  end-do
+
+  ! costo totale
+  total_cost = (sum(t in 1..3, m1, m2 in MEZZI) y(m1, m2, t) * B(m1, m2) * 20) + (sum (m in MEZZI, t in TRATTE) x(m, t) * A(m, t) * 20)
+
+  minimise(total_cost)
+  writeln("Costo totale ", getobjval)
+
+
+
+
+  sum(t in TRATTE) x(3, t) <= 4 * sum(t in TRATTE) x(1, t)
+  minimise(total_cost)
+  writeln("Punto II: ", getobjval)
+  
+
+
+  ! ------------------ PARTE III ------------------
+  forall(t in 1..3) do
+    y(1, 3, t) = 0
+    y(3, 1, t) = 0
+  end-do
+
+  minimise(total_cost)
+  writeln("Punto III: ", getobjval)
+
+procedure PrintMpvar
+  forall(m in MEZZI, t in TRATTE) do
+    if(getsol(x(m, t)) = 1) then
+      writeln("x(", m, ", ", t, ") = ", getsol(x(m, t)))
+    end-if
+  end-do
+
+  writeln("\n----------\n")
+
+  forall(m1, m2 in MEZZI, t in 1..3) do
+    if(getsol(y(m1, m2, t)) = 1) then
+      writeln("y(", m1, ", ", m2, ", ", t, ") = ", getsol(y(m1, m2, t)))
+    end-if
+  end-do
+
+end-procedure
+
+end-model

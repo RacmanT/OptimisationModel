@@ -1,0 +1,77 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_STATI  = 18
+    NUMERO_COLORI = 18
+  end-parameters
+
+  declarations
+
+    STATI  = 1..NUMERO_STATI
+    COLORI = 1..NUMERO_COLORI
+
+    GRAFO: array(STATI, STATI) of integer
+
+    ! indica quale colore è associato ad una città
+    x: array(STATI, COLORI) of mpvar
+
+    ! indica se un colore è stato utilizzato o meno
+    y: array(COLORI) of mpvar
+
+    ! indica se una coppia di stati ha lo stesso colore
+    ! z: array(STATI, STATI) of mpvar
+
+
+  end-declarations
+
+  forall(c in COLORI)             y(c) is_binary
+  ! forall(s1, s2 in STATI)         z(s1, s2) is_binary
+  forall(s in STATI, c in COLORI) x(s, c) is_binary
+
+
+          ! 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18
+  GRAFO :: [0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 01 Belgio
+            1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 02 Lussemburgo
+            1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 03 Germania
+            0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 04 Polonia
+            0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 05 Repubblica Ceca
+            1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, ! 06 Francia
+            0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 07 Svizzera
+            0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 08 Licthenstein
+            0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, ! 09 Austria
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 10 Monaco
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ! 11 Portogallo
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, ! 12 Spagna
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ! 13 Andorra
+            0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, ! 14 Italia
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, ! 15 Slovenia
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, ! 16 Crazia
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, ! 17 San Marino
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0] ! 18 Vaticano
+
+
+  ! ogni città deve avere un colore associato
+  forall(s in STATI) sum(c in COLORI) x(s, c) = 1
+
+  ! ! bound x con z
+  ! forall(s1, s2 in STATI | s1 > s2, c in COLORI) do
+  !   z(s1, s2) >= x(s1, c) + x(s2, c) - 1
+  !   z(s1, s2) <= x(s1, c)
+  !   z(s1, s2) <= x(s2, c)
+  ! end-do
+
+  ! ! se due città sono adiacenti, allora non possono avere lo stesso colore
+  ! forall(s1, s2 in STATI) do
+  !   GRAFO(s1, s2) * z(s1, s2) = 0
+  ! end-do
+
+  ! uno stato ha un colore se questo viene utilizzato
+  forall(c in COLORI) sum(s in STATI) x(s, c) <= NUMERO_STATI * y(c)
+
+
+  minimise(sum(c in COLORI) y(c))
+  writeln("Numero di colori utilizzati ", getobjval)
+
+end-model

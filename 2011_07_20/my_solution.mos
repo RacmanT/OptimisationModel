@@ -1,0 +1,65 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUMBER_OF_STORES               = 4
+    NUMBER_OF_DISTRIBUTION_CENTERS = 7
+    NUMBER_OF_POTENTIAL_LOCATIONS  = 15
+  end-parameters
+
+  declarations
+
+    POTENTIAL_LOCATIONS   = 1..NUMBER_OF_POTENTIAL_LOCATIONS
+    DISTRIBUTION_CENTERS  = 1..NUMBER_OF_DISTRIBUTION_CENTERS
+
+    COORDINATE_X_DISTRIBUTION_CENTERS : array(DISTRIBUTION_CENTERS) of integer
+    COORDINATE_Y_DISTRIBUTION_CENTERS : array(DISTRIBUTION_CENTERS) of integer
+
+    COORDINATE_X_POTENTIAL_STOCK      : array(POTENTIAL_LOCATIONS) of integer
+    COORDINATE_Y_POTENTIAL_STOCK      : array(POTENTIAL_LOCATIONS) of integer
+
+    DISTANCES:  array(DISTRIBUTION_CENTERS, POTENTIAL_LOCATIONS) of real
+    VEHICLES:   array(DISTRIBUTION_CENTERS)                      of integer
+
+    ! x indica se nella positione POTENTIAL LOCATION è posizionato o meno un magazzino
+    x: array(POTENTIAL_LOCATIONS) of mpvar
+
+    ! y indica se il centro di distribuzione cd è associato al magazzino m
+    y:array(POTENTIAL_LOCATIONS, DISTRIBUTION_CENTERS) of mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(pl in POTENTIAL_LOCATIONS)                             x(pl)     is_binary
+  forall(dc in DISTRIBUTION_CENTERS, pl in POTENTIAL_LOCATIONS) y(dc, pl) is_integer
+
+  COORDINATE_X_DISTRIBUTION_CENTERS ::  [2, 2,  2, 9, 9,  9,  9]
+  COORDINATE_Y_DISTRIBUTION_CENTERS ::  [5, 9, 13, 3, 7, 11, 15]
+
+  COORDINATE_X_POTENTIAL_STOCK  ::  [5, 5, 5, 5, 5, 5, 5, 5,  5,  5,  5,  5,  5,  5,  5]
+  COORDINATE_Y_POTENTIAL_STOCK  ::  [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+
+  VEHICLES :: [10, 7, 8, 12, 3, 6, 11]
+
+  ! recuperiamo le distanze tra i centri di distribuzione e le locazioni potenziali
+  forall(dc in DISTRIBUTION_CENTERS, pl in POTENTIAL_LOCATIONS) do
+    DISTANCES(dc, pl) := sqrt((COORDINATE_X_POTENTIAL_STOCK(pl)-COORDINATE_X_DISTRIBUTION_CENTERS(dc))^2 + (COORDINATE_Y_POTENTIAL_STOCK(pl)-COORDINATE_Y_DISTRIBUTION_CENTERS(dc))^2)
+  end-do
+
+  ! vogliamo mettere esattamente quattro magazzini, non uno di più
+  sum(pl in POTENTIAL_LOCATIONS) x(pl) = 4
+
+  ! dobbiamo vincolare il numero di camion ad uno dei magazzini
+  forall(dc in DISTRIBUTION_CENTERS) sum(pl in POTENTIAL_LOCATIONS) y(dc, pl) = VEHICLES(dc)
+
+  ! un magazzino ospita camion solo se è 'presente'. Ne può ospitare un numero arbitrario
+  forall(pl in POTENTIAL_LOCATIONS) sum(dc in DISTRIBUTION_CENTERS) y(dc, pl) <= 10000 * x(pl)
+
+  ! il costo è stabilito dalla distanza percorsa da ogni camion
+  minimise(sum(pl in POTENTIAL_LOCATIONS, dc in DISTRIBUTION_CENTERS) y(dc, pl) * DISTANCES(dc, pl))
+
+  writeln("Result: ", getobjval)
+
+end-model

@@ -1,0 +1,74 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    COLORI = 1..18
+    STATI = 1..18
+    
+    GRAFO: array(STATI, STATI) of integer
+    
+    x: array(COLORI) of mpvar
+    y: array(STATI, COLORI) of mpvar
+    
+    z: array(STATI) of mpvar
+
+  end-declarations
+
+  writeln("Begin running model")
+  
+  forall(c in COLORI) x(c) is_binary
+  forall(s in STATI, c in COLORI) y(s, c) is_binary
+  forall(s in STATI) z(s) is_binary
+  
+  
+            ! 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18
+  GRAFO :: [0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 01 Belgio
+            1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 02 Lussemburgo
+            1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 03 Germania
+            0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 04 Polonia
+            0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 05 Repubblica Ceca
+            1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, ! 06 Francia
+            0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 07 Svizzera
+            0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 08 Licthenstein
+            0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, ! 09 Austria
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ! 10 Monaco
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ! 11 Portogallo
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, ! 12 Spagna
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ! 13 Andorra
+            0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, ! 14 Italia
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, ! 15 Slovenia
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, ! 16 Crazia
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, ! 17 San Marino
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0] ! 18 Vaticano
+  
+    forall(s in STATI) sum(c in COLORI) y(s, c) = 1
+    
+    forall(c in COLORI) sum(s in STATI) y(s, c) <= 18 * x(c)
+    !forall(s in STATI, c in COLORI) y(s, c) <= x(c)
+    
+    forall(s1,s2 in STATI | s1 > s2, c in COLORI) do
+      if GRAFO(s1, s2) = 1 then
+        y(s1,c) + y(s2,c) <= GRAFO(s1, s2)
+      end-if
+    end-do
+    
+    minimise(sum(c in COLORI) x(c))
+    writeln("Numero minimo colori utilizzati ", getobjval)
+    
+    writeln("-------- PARTE 2 -----------")
+    ! cricca = subgrafo connesso di dimensione massima
+    
+    
+    forall(s1,s2 in STATI | s1 > s2, c in COLORI) do
+      if GRAFO(s1, s2) = 0 then
+        z(s1) + z(s2) <= 1 + GRAFO(s1, s2)
+      end-if
+    end-do
+    
+    maximise(sum(s in STATI) z(s))
+    writeln("La cricca massima ha in se ", getobjval, " nodi")
+    
+  writeln("End running model")
+end-model

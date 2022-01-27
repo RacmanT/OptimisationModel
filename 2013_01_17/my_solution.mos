@@ -1,0 +1,45 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUMERO_DI_TRATTE = 4
+    NUMERO_DI_MEZZI = 3
+    CARICO = 20
+  end-parameters
+
+  declarations
+
+  
+    MEZZI = 1..NUMERO_DI_MEZZI
+    TRATTE = 1..NUMERO_DI_TRATTE
+
+    A : array(MEZZI, TRATTE) of integer
+    B : array(MEZZI, MEZZI) of integer
+    
+    x: array(MEZZI,TRATTE) of mpvar
+    costo_fisso: linctr
+    costo_variabile: linctr
+  end-declarations
+  
+  forall(m in MEZZI, t in TRATTE) x(m, t) is_binary
+
+  
+  A ::  [30, 40, 30, 60,
+         20, 40, 50, 50,
+         40, 10, 60, 40]
+
+  B :: [ 1, 20, 20,
+        20,  1, 10,
+        20, 10,  1]
+
+  forall(t in TRATTE) sum(m in MEZZI) x(m, t) = 1
+  
+  forall(t in TRATTE) do 
+  costo_fisso(t) := sum(m in MEZZI) x(m, t) * A(m, t) 
+  costo_variabile(t):= if(t=0, 0, sum(m,n in MEZZI) x(m,t) * x(n,t-1) * B(m,n))
+  end-do 
+  
+  minimise(sum(t in TRATTE) (costo_fisso(t) + costo_variabile(t)))
+end-model

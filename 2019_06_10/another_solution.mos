@@ -1,0 +1,107 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_ORE           = 4
+    NUMERO_STAZIONI      = 4
+    MAX_NUMERO_BICI      = 10
+    BICI_INIZIO_GIORNATA = 6
+  end-parameters
+
+
+  declarations
+
+    ORE      = 1..NUMERO_ORE
+    STAZIONI = 1..NUMERO_STAZIONI
+
+    DOMANDA_NOLEGGIO : array(STAZIONI, ORE) of integer
+    DOMANDA_DEPOSITO : array(STAZIONI, ORE) of integer
+
+
+    ! quante bici ci sono in una stazione alla fine di una certa ora
+    x: array(STAZIONI, ORE) of mpvar
+
+    ! indica se all'ora o il furgone passa alla stazione s
+    y: array(STAZIONI, ORE) of mpvar
+
+    ! indicano quante bici vengono scaricate / caricate dal furgone
+    carico  : array(STAZIONI, ORE) of mpvar
+    scarico : array(STAZIONI, ORE) of mpvar
+
+  end-declarations
+
+
+  forall(s in STAZIONI, o in ORE)       x(s, o) is_integer
+  forall(s in STAZIONI, o in ORE)       y(s, o) is_binary
+  forall(s in STAZIONI, o in ORE)  carico(s, o) is_integer
+  forall(s in STAZIONI, o in ORE) scarico(s, o) is_integer
+
+  DOMANDA_NOLEGGIO :: [3, 8, 3, 6,
+                    	 2, 4, 1, 5,
+                    	 5, 7, 8, 3,
+                    	 3, 7, 4, 3]
+
+  DOMANDA_DEPOSITO :: [4, 6, 4, 1,
+                    	 2, 7, 3, 3,
+                    	 3, 5, 2, 6,
+                    	 8, 3, 1, 4]
+
+  forall(s in STAZIONI, o in ORE) x(s, o) <= MAX_NUMERO_BICI
+  forall(s in STAZIONI, o in ORE) x(s, o) >= 0
+
+  ! ogni stazione deve avere un numero di bici compreso tra 0 e MAX_NUMERO_DI_BICI
+  forall(s in STAZIONI, o in ORE) do
+      x(s, o) = if(o = 1, BICI_INIZIO_GIORNATA, x(s, o - 1)) - DOMANDA_NOLEGGIO(s, o) + DOMANDA_DEPOSITO(s, o) - carico(s, o) + scarico(s, o)
+      !x(s, o) = if(o = 1, BICI_INIZIO_GIORNATA, x(s, o - 1)) - DOMANDA_NOLEGGIO(s, o) + DOMANDA_DEPOSITO(s, o) - carico(s, o) + scarico(s, o)
+  end-do
+
+  ! ad ogni ora il furgone è presente al più in una sola stazione
+  forall(o in ORE) sum(s in STAZIONI) y(s, o) <= 1
+
+  ! il carico o lo scarico ad una certa ora possono avvenire solo se il furgone passa in quell'ora e in quella stazione
+  forall(s in STAZIONI, o in ORE) do
+     carico(s, o) <= y(s, o) * MAX_INT
+    scarico(s, o) <= y(s, o) * MAX_INT
+  end-do
+
+  ! ! se il furgone passa per una stazione, deve
+  ! forall(s in STAZIONI, o in ORE) carico(s, o) >= y(s, o)
+  ! forall(s in STAZIONI, o in ORE) scarico(s, o) >= y(s, o)
+
+  minimise(sum(s in STAZIONI, o in ORE) (carico(s, o) + scarico(s,o)))
+  writeln("Il numero di carico e scarico è ", getobjval)
+  
+  ! declarations
+  !   d: array(STAZIONI, ORE) of mpvar
+  ! end-declarations
+  ! forall(s in STAZIONI, o in ORE) do
+  !   carico(s,o) - scarico(s,o) <= d(s,o)  
+  !   scarico(s,o) - carico(s,o) <= d(s,o)  
+  ! end-do
+  ! minimise(sum(s in STAZIONI, o in ORE) d(s,o))
+  ! writeln("Il numero di carico e scarico è ", getobjval)
+
+  forall(o in ORE) do
+    forall(s in STAZIONI) do
+      write(getsol(x(s, o)), "\t")
+    end-do
+    writeln("")
+  end-do
+
+  declarations
+    ! numero bici del furgone alla fine dell'ora o
+    z: array(ORE) of mpvar
+  end-declarations
+
+  forall(o in ORE) z(o) <= 4
+  forall(o in ORE) z(o) = if(o = 1, 1, z(o - 1)) + sum(s in STAZIONI) (carico(s, o) - scarico(s, o))
+  
+  
+  
+  
+
+  minimise(sum(s in STAZIONI, o in ORE) (carico(s, o) + scarico(s,o)))
+  writeln("Il numero di carico e scarico è ", getobjval)
+
+end-model

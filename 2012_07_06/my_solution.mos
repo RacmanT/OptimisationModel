@@ -1,0 +1,62 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMBER_OF_NODES = 8
+
+  end-parameters
+
+
+  declarations
+    NODES = 1..NUMBER_OF_NODES
+    
+    GRAPH : array(NODES, NODES) of integer
+
+    ! se si passa per l'arco (i, j)
+    x: array(NODES, NODES) of mpvar
+
+    ! il flusso tra un nodo e l'altro
+    f: array(NODES, NODES) of mpvar
+
+    minimum_number_of_edges: real
+
+  end-declarations
+
+  forall(n, m in NODES) x(n, m) is_binary
+
+  !          0   A   B   C   D   E   F   T
+  GRAPH :: [20, 27,  0,  0,  0,  0,  0,  0, ! node 0
+             0,  0,  0, 19, 15,  0,  0,  0, ! node A
+             0,  0,  0, 12,  0,  0,  9,  0, ! node B
+             0,  0,  0,  0, 14, 16,  0,  0, ! node C
+             0,  0,  0,  0,  0,  0,  0, 18, ! node D
+             0,  0,  0,  0,  0,  0,  5, 10, ! node E
+             0,  0,  0,  0,  0,  0,  0, 17, ! node F
+             0,  0,  0,  0,  0,  0,  0,  0] ! node T non era compreso nella soluzione del prof..
+
+  
+  sum(n,m in NODES | n > m) x(n,m) <= 8
+  sum(n in NODES) x(1,n) >= 1
+  sum(n in NODES) x(n,NUMBER_OF_NODES) >= 1
+  
+  forall(n,m in NODES) f(n,m) <= GRAPH(n,m) * x(n,m)
+  
+  forall(n in NODES | n <> 0 and n <> NUMBER_OF_NODES) do 
+  sum(m in NODES) f(m,n) = sum(m in NODES) f(n,m) 
+  end-do
+  
+  maximise(sum(n in NODES) f(n, NUMBER_OF_NODES))
+
+  writeln("Begin running model - I  Part")
+  writeln("Result = ", getobjval)
+  writeln("End   running model - II Part")
+
+  forall (n, m in NODES) do
+	if(getsol(x(n, m)) = 1) then
+		writeln("x(", n,", ", m, ") = ", getsol(x(n, m)))
+	end-if
+
+end-do
+
+end-model

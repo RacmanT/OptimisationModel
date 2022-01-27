@@ -1,0 +1,52 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+!sample declarations section
+declarations
+ STAZIONI = 1..10
+ FREQUENZE = 1..6
+
+ c: array(STAZIONI,STAZIONI) of integer
+
+ x: array(STAZIONI,FREQUENZE) of mpvar
+ y: array(FREQUENZE) of mpvar
+
+end-declarations
+
+c::[0, 1, 0, 0, 0, 0, 0, 2, 0, 0,
+	0, 0, 2, 0, 2, 0, 0, 0, 0, 1,
+	0, 0, 0, 4, 0, 0, 0, 0, 0, 1,
+	0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 3, 0, 0, 0, 4,
+	0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 1, 0, 2,
+	0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+
+forall(i in STAZIONI, k in FREQUENZE) x(i,k) is_binary
+forall(k in FREQUENZE) y(k) is_binary
+
+forall(i in STAZIONI) sum(k in FREQUENZE) x(i,k) = 1
+forall(i in STAZIONI, k in FREQUENZE) x(i,k) <= y(k)
+
+forall(i,j in STAZIONI | c(i,j) > 0, k in FREQUENZE) sum(l in maxlist(1,k-c(i,j)+1)..minlist(6,k+c(i,j)-1)) x(j,l) <= 1-x(i,k)
+
+
+numFREQUENZE := sum(k in FREQUENZE) y(k)
+
+minimize(numFREQUENZE)
+
+forall(i in STAZIONI, k in FREQUENZE) do
+if getsol(x(i,k)) > 0 then
+	writeln("x(",i," ",k,")=",getsol(x(i,k)))
+end-if
+end-do
+
+writeln("Obj=",getobjval)
+
+
+writeln("End running model")
+
+end-model

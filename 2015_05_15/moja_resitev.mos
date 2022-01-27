@@ -1,0 +1,45 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    LARGHEZZA_LIBRERIA = 26
+    LIBRI = 1..15
+    SCAFFALI = 1..15
+    
+    LARGHEZZA_LIBRI : array(LIBRI) of integer
+    ALTEZZA_LIBRI : array(LIBRI) of integer
+    
+    x:array(SCAFFALI) of mpvar
+    y:array(SCAFFALI) of mpvar
+    z:array(LIBRI, SCAFFALI) of mpvar
+    
+  end-declarations
+
+  writeln("Begin running model")
+  
+  forall(s in SCAFFALI) x(s) is_binary
+  forall(s in SCAFFALI) y(s) is_integer
+  forall(s in SCAFFALI, l in LIBRI) z(l, s) is_binary
+  
+  
+    ALTEZZA_LIBRI   :: [ 2, 10, 10, 10, 8, 12, 18,  9, 15, 13, 8, 7,  7, 10, 5]
+    LARGHEZZA_LIBRI :: [10, 22, 20,  5, 8,  7, 15, 11,  9, 10, 7, 9, 12,  5, 6]
+  
+  forall(s in SCAFFALI) sum(l in LIBRI) z(l,s)*LARGHEZZA_LIBRI(l) <= LARGHEZZA_LIBRERIA*x(s)
+  
+  forall(l in LIBRI) sum(s in SCAFFALI) z(l,s) = 1
+  
+  forall(s in SCAFFALI) y(s) <= MAX_INT * x(s)
+  
+  forall(s in SCAFFALI, l in LIBRI) z(l,s)*ALTEZZA_LIBRI(l) <= y(s)
+  
+  minimise(sum(s in SCAFFALI) y(s))
+  writeln("Costo totale ", getobjval)
+
+  forall(s in SCAFFALI) writeln("Altezza ", s, ". scaffale = " , getsol(y(s)))
+  
+    
+  writeln("End running model")
+end-model

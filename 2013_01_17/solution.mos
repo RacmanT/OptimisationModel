@@ -1,0 +1,57 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+declarations
+  tratte = 1..4
+  modi = 1..3
+
+  C: array(modi,tratte) of integer
+  D: array(modi, modi) of integer
+
+  x: array(modi, tratte) of mpvar
+  y: array(modi, modi, 2..4) of mpvar
+end-declarations
+
+C::[30, 40, 30, 60,
+	20, 40, 50, 50,
+	40, 10, 60, 40]
+
+D::[1, 20, 20,
+	20, 1, 10,
+	20, 10, 1]
+
+forall(i in modi, k in tratte) x(i,k) is_binary
+
+forall(i, j in modi, k in 2..4) y(i,j,k) is_binary
+
+forall(k in tratte) sum(i in modi) x(i,k) = 1
+
+forall(i, j in modi, k in 2..4) do
+   ! y(i,j,k) <= x(i,k-1)
+   ! y(i,j,k) <= x(j,k)
+	 y(i,j,k) >= x(i,k-1) + x(j,k) - 1
+end-do
+
+costo := 20*(sum(i in modi, k in tratte) C(i,k)*x(i,k) + sum(i,j in modi,k in 2..4) D(i,j)*y(i,j,k))
+
+minimize(costo)
+
+writeln("Soluzione 1: ",getobjval)
+
+sum(k in tratte) x(3,k) <= 4 * sum(k in tratte) x(1,k)
+
+minimize(costo)
+
+writeln("Soluzione 2: ",getobjval)
+
+forall(k in 2..4) do
+	y(1,3,k) = 0
+	y(3,1,k) = 0
+end-do
+
+minimize(costo)
+
+writeln("Soluzione 3: ",getobjval)
+
+
+end-model

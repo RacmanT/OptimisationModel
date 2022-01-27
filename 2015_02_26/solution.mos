@@ -1,0 +1,69 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+!optional parameters section
+
+
+!sample declarations section
+declarations
+  I = 1..3
+  J = 1..3
+  
+  C: array(I, J) of integer 
+  D: array(I) of integer
+  R: array(J) of integer
+  
+  F = 50
+  N = 4
+  L = 65
+  K = 10000
+  
+  x: array(I,J) of mpvar ! numero di tondini traferiti da i a j
+  y: array(I,J) of mpvar ! indica se viene utilizzato un camion da i a j
+  z: mpvar               ! 1 se viene utilizzato il camion a noleggio
+  !Objective:linctr
+end-declarations
+
+C:: [9, 6, 5,
+	   7, 4, 9,
+     4, 6, 3]
+
+D:: [7000, 6000, 4000]
+R:: [8000, 5000, 4000] 
+
+forall(j in J) sum(i in I) x(i,j) >= R(j)
+
+forall(i in I) sum(j in J) x(i,j) <= D(i)
+
+forall(i in I, j in J) x(i,j) <= K*y(i,j)
+
+y(1,2)+y(2,2) <= 1
+
+sum(i in I, j in J) y(i,j) <= N + z
+
+forall(i in I, j in J) x(i,j) is_integer
+forall(i in I, j in J) y(i,j) is_binary
+z is_binary
+
+costo:=sum(i in I, j in J) C(i,j)*x(i,j)*0.01 + F*sum(i in I, j in J) y(i,j) + (L-F)*z
+
+minimize(costo)
+
+writeln(getobjval)
+
+forall (i in I) do
+  forall (j in J) do
+    write(getsol(y(i,j)), " ")
+  end-do 
+  writeln("")
+end-do
+
+writeln("")
+forall (i in I) do
+  forall (j in J) do
+    write(getsol(x(i,j)), "\t")
+  end-do 
+  writeln("")
+end-do
+ 
+end-model

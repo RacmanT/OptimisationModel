@@ -1,0 +1,47 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+  
+  parameters
+    NUM_CENTRI = 7
+    NUM_MAGAZZINI = 7
+  end-parameters
+
+  declarations
+    VEICOLI : array(1..NUM_MAGAZZINI) of integer
+    MAGAZZINO_X : array(1..NUM_MAGAZZINI) of integer
+    MAGAZZINO_Y : array(1..NUM_MAGAZZINI) of integer
+    
+    
+    CENTRO_X : array(1..NUM_CENTRI) of mpvar
+    CENTRO_Y : array(1..NUM_CENTRI) of mpvar
+    RIFERIMENTO : array(1..NUM_CENTRI, 1..NUM_MAGAZZINI) of mpvar
+    DISTANZA : array(1..NUM_CENTRI, 1..NUM_MAGAZZINI) of mpvar
+    
+    Objective:linctr
+  end-declarations
+
+  writeln("Begin running model")
+  
+  
+  VEICOLI :: [10, 7, 8, 12, 3, 6, 11]
+  MAGAZZINO_X :: [2, 2, 2, 9, 9, 9, 9]
+  MAGAZZINO_Y :: [5, 9, 13, 3, 7, 11, 15]
+  
+  forall(c in NUM_CENTRI) do
+  CENTRO_Y(c) is_integer
+  CENTRO_Y(c) > 1
+  CENTRO_X(c) = 5
+  
+    forall(m in NUM_MAGAZZINI) do
+      RIFERIMENTO(c, m) is_binary
+      DISTANZA(c, m) is_continuous
+     end-do
+  
+  end-do
+  
+
+  !...
+  writeln("End running model")
+end-model

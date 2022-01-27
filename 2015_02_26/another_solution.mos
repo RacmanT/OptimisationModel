@@ -1,0 +1,89 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+
+  parameters
+    NUMERO_CAMION = 5
+    NUMERO_CANTIERI = 3
+  end-parameters
+
+  declarations
+
+    CAMION = 1..NUMERO_CAMION
+    CANTIERI = 1..NUMERO_CANTIERI
+
+    TONDINI_OFFERTA   : array(CANTIERI) of integer
+    TONDINI_RICHIESTA : array(CANTIERI) of integer
+
+    COSTO_NOLEGGIO_CAMION : array(CAMION) of integer
+
+    A : array(CANTIERI, CANTIERI) of integer
+
+    ! indica quanti tondini da un certo cantiere ad un altro
+    x: array(CANTIERI, CANTIERI) of mpvar
+
+    ! indica se avviene uno spostamento tra un cantiere c1 al cantiere c2
+    y: array(CANTIERI, CANTIERI) of mpvar
+
+    ! indica se il camion c viene noleggiato
+    z: array(CAMION) of mpvar
+
+    ! costo trasporto tondini
+    costo_tondini : mpvar
+
+    ! costo noleggio camion
+    costo_noleggio: mpvar
+
+  end-declarations
+
+  forall(c in CAMION) z(c) is_binary
+  forall(c1, c2 in CANTIERI) y(c1, c2) is_binary
+  forall(c1, c2 in CANTIERI) x(c1, c2) is_integer
+
+
+    TONDINI_OFFERTA   :: [7000, 6000, 4000]
+    TONDINI_RICHIESTA :: [8000, 5000, 4000]
+
+    COSTO_NOLEGGIO_CAMION :: [50, 50, 50, 50, 65]
+
+    A :: [9, 6, 5,
+          7, 4, 9,
+          4, 6, 3]
+
+    ! non possono partire da un cantiere più tondini della sua 'capacità'
+    forall(c_old in CANTIERI) sum(c_new in CANTIERI) x(c_old, c_new) <= TONDINI_OFFERTA(c_old)
+
+    ! ad ogni nuovo cantiere devono arrivare tanti tondini quanti richiesti
+    forall(c_new in CANTIERI) sum(c_old in CANTIERI) x(c_old, c_new) = TONDINI_RICHIESTA(c_new)
+
+    ! uno spostamento avviene se c'è un camion che lo compie
+    forall(c_old, c_new in CANTIERI) x(c_old, c_new) <= y(c_old, c_new) * 10000
+
+    ! ci sono tanti spostamenti quanti il numero di noleggi
+    sum(c_old, c_new in CANTIERI) y(c_old, c_new) = sum(c in CAMION) z(c)
+
+    ! costo trasporto tondini
+    costo_tondini = sum(c_old, c_new in CANTIERI) x(c_old, c_new) * A(c_old, c_new) / 100
+  
+    ! costo noleggio del camion
+    costo_noleggio = sum(c in CAMION) z(c) * COSTO_NOLEGGIO_CAMION(c)
+    
+    ! il quinto camion può essere noleggiato solo se vengono noleggiati gli altri quattro prima
+    4 * z(5) <= sum(c in 1..4) z(c)
+    
+    ! nel cantiere 2 non possono arrivare sia tondini dal primo che dal secondo cantiere
+    y(1, 2) + y(2, 2) <= 1
+    
+    
+    minimise(costo_tondini + costo_noleggio)
+    writeln("Costo totale ", getobjval)
+    
+    forall(c1 in CANTIERI) do
+      forall(c2 in CANTIERI) do
+        write(getsol(x(c1, c2)), "\t")
+      end-do
+      writeln("")
+    end-do  
+
+end-model

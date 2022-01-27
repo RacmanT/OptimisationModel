@@ -1,0 +1,72 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    ATTIVITA = 1..20
+    BUDGET = 1000
+    
+    
+    DURATA: array(ATTIVITA) of integer
+    DURATA_BREVE: array(ATTIVITA) of integer
+    COSTO: array(ATTIVITA) of integer
+    PREDECESSORI: array(ATTIVITA, ATTIVITA) of integer
+    
+    x: array(ATTIVITA) of mpvar
+    y: array(ATTIVITA) of mpvar
+    z: array(ATTIVITA) of mpvar
+    
+
+  end-declarations
+
+  writeln("Begin running model")
+  
+  forall(a in ATTIVITA) x(a) is_integer
+  forall(a in ATTIVITA) y(a) is_integer
+  
+  
+  
+  forall(a in ATTIVITA) z(a) is_binary
+  
+  
+  COSTO        :: [100,20,40,35,40,20,150,240,50,46,37,35,32,10,15,17,10,15,10,0]
+  DURATA       :: [80,20,37,28,39,18,78,96,46,34,29,27,10,8,6,12,8,10,6,0]
+  DURATA_BREVE :: [75,15,30,26,33,12,65,82,40,26,20,25,8,6,5,10,8,8,6,0]
+
+  PREDECESSORI :: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,0,1,1,1,1,0,1,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,0,1,1,1,1,0,1,0,0,0,0,0,0,0,0,
+		               0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,
+		               0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,
+		               0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,
+		               0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,
+		               0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,
+		               0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0]
+		               
+	
+  !x(1) = 0
+  !forall(a in ATTIVITA) y(a) = z(a) * DURATA_BREVE(a) + (1-z(a))* DURATA(a)
+  
+  forall(a, b in ATTIVITA) x(a) >=  ((x(b) + DURATA(b)) * PREDECESSORI(a, b))
+  
+  sum(a in ATTIVITA) z(a) * COSTO(a) <= BUDGET 
+  
+  
+  
+  minimise(x(20))
+  writeln(getobjval)
+  !...
+  writeln("End running model")
+end-model

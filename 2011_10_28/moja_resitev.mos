@@ -1,0 +1,66 @@
+
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUM_OBJECTS = 8
+    TYPE_PACKAGES = 5
+    TRUCK_CAPACITY_1 = 100
+    TRUCK_CAPACITY_2 = 80
+  end-parameters
+
+  declarations
+    OBJECTS = 1..NUM_OBJECTS
+    PACKAGES = 1..TYPE_PACKAGES
+
+
+    WEIGHTS: array(OBJECTS) of integer
+    VALUES: array(OBJECTS) of integer
+
+    MAX_CAPACITY: array(PACKAGES) of integer
+
+    ASSOCIATION : array(OBJECTS, PACKAGES) of mpvar
+
+    USED : array(PACKAGES) of mpvar
+
+    NUM_PACKAGES:linctr
+  end-declarations
+
+  writeln("Begin running model")
+
+    forall(p in PACKAGES) USED(p) is_binary
+    forall(o in OBJECTS, p in PACKAGES) ASSOCIATION(o, p) is_binary
+
+
+    WEIGHTS     :: [10, 15, 17, 7,  9, 13, 4, 20]
+    VALUES      :: [ 6, 20, 15, 7, 12, 17, 8, 14]
+
+    MAX_CAPACITY :: [15, 20, 30, 35, 40]
+
+    !forall(o in OBJECTS) sum(p in PACKAGES) ASSOCIATION(o, p) = 1
+
+    forall(p in PACKAGES) sum(o in OBJECTS) ASSOCIATION(o, p)* WEIGHTS(o) <= MAX_CAPACITY(p) * USED(p)
+
+   ! minimise(sum(p in PACKAGES) USED(p))
+    
+    forall(o in OBJECTS) sum(p in PACKAGES) ASSOCIATION(o, p) <= 1
+    
+    sum(o in OBJECTS, p in PACKAGES) ASSOCIATION(o, p)* WEIGHTS(o) <= TRUCK_CAPACITY_2
+    
+    maximise(sum(o in OBJECTS, p in PACKAGES) (ASSOCIATION(o, p) * VALUES(o)))
+
+
+    writeln("Numero scatole acquistate ",  getobjval)
+  forall(p in PACKAGES) do
+    if(getsol(USED(p)) = 1) then
+      writeln("La scatola ", p, " è stata acquistata")
+    end-if
+  end-do
+
+
+
+
+  writeln("End running model")
+end-model

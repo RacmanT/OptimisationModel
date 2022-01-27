@@ -1,0 +1,94 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+
+  parameters
+    NUMERO_DI_MINERALI = 6
+    NUMERO_DI_SCATOLE = 6
+  end-parameters
+
+  declarations
+
+    SCATOLE = 1..NUMERO_DI_SCATOLE
+    MINERALI = 1..NUMERO_DI_MINERALI
+
+
+    ! indica se la scatola s viene utilizzata
+    y: array(SCATOLE) of mpvar
+
+    ! indica se il minerale m è nella scatola s
+    x: array(MINERALI, SCATOLE) of mpvar
+
+    ! numero minimo di scomparti utilizzati (punto 1)
+    z: mpvar
+
+
+  end-declarations
+
+  z is_integer
+
+  forall(s in SCATOLE)                y(s)    is_binary
+  forall(s in SCATOLE, m in MINERALI) x(m, s) is_binary
+
+
+  ! un minerale sta in almeno uno scomparto
+  forall(m in MINERALI) sum(s in SCATOLE) x(m, s) >= 1
+
+  ! un minerale può essere inserito in una scatola se e solo se quella scatola viene utilizzata
+  forall(s in SCATOLE, m in MINERALI) x(m, s) <= y(s)
+
+  ! vincoli incompatibilità
+  forall(s in SCATOLE) do
+    x(1, s) + x(2, s) <= 1
+    x(1, s) + x(5, s) <= 1
+    x(2, s) + x(3, s) <= 1
+    x(3, s) + x(4, s) <= 1
+    x(3, s) + x(6, s) <= 1
+    x(4, s) + x(5, s) <= 1
+  end-do
+
+  z = sum(s in SCATOLE) y(s)
+
+  minimise(z)
+
+  writeln("Numero minimo di scomparti ", getobjval)
+
+  ! ------------------ seconda parte ------------------
+
+  declarations
+
+    SCOMPARTI = 1..12 ! TODO: check
+
+    QUANTITA : array(MINERALI) of integer
+    PROFITTO : array(MINERALI) of integer
+
+    ! indica se il minerale m è stato messo nello scomparto s
+    a: array(MINERALI, SCOMPARTI) of mpvar
+
+    ! indica quanto minerale m è messo in uno scomparto s
+    b: array(MINERALI, SCOMPARTI) of mpvar
+
+  end-declarations
+
+  forall(m in MINERALI, s in SCOMPARTI) a(m, s) is_binary
+  forall(m in MINERALI, s in SCOMPARTI) b(m, s) is_integer
+
+
+  QUANTITA :: [20, 45, 30, 30, 50, 25]
+  PROFITTO :: [ 6,  3,  4,  5,  2,  7]
+
+  ! in uno scomparto può essere inserito un solo minerale
+  forall(s in SCOMPARTI, m1, m2 in MINERALI | m1 > m2) a(m1, s) + a(m2, s) <= 1
+
+  ! uno scomparto non può contenere più di della sua capacità
+  forall(s in SCOMPARTI, m in MINERALI)    b(m, s) <= 45 / 3 * a(m, s)
+
+  ! un minerale non può essere presente più della sua quantità disponibile
+  forall(m in MINERALI) sum(s in SCOMPARTI) b(m, s) <= QUANTITA(m) 
+  
+  maximise(sum(m in MINERALI, s in SCOMPARTI) b(m, s) * PROFITTO(m) )
+  
+  writeln("Profitto totale ", getobjval)
+
+end-model

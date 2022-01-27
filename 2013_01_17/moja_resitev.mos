@@ -1,0 +1,70 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    MEZZI = 1..3
+    TRATTE = 1..4
+    TONNELLATE = 20
+    
+    COSTO_TRATTA: array(MEZZI, TRATTE) of integer 
+    COSTO_CAMBIO: array(MEZZI, MEZZI) of integer 
+    
+    x: array(TRATTE, MEZZI) of mpvar
+    y: array(1..3, MEZZI, MEZZI) of mpvar
+    
+    COSTO_FIX, COSTO_VAR : array(TRATTE) of mpvar
+    
+    
+    
+    
+  end-declarations
+
+  writeln("Begin running model")
+  
+  forall(t in TRATTE, m in MEZZI) x(t, m) is_binary
+  forall(t in 1..3, m1, m2 in MEZZI) y(t, m1, m2) is_binary
+  
+  
+  COSTO_TRATTA::[30, 40, 30, 60,
+              	 20, 40, 50, 50,
+              	 40, 10, 60, 40]
+
+  COSTO_CAMBIO::[1, 20, 20,
+             	  20, 1, 10,
+	              20, 10, 1]
+  
+  forall(t in TRATTE) sum(m in MEZZI) x(t, m) = 1
+  
+  forall(t in 1..3, m1, m2 in MEZZI) do
+    y(t, m1, m2) <= x(t)
+    y(t, m1, m2) <= x(t)
+    y(t, m1, m2) >= x(t, m1) + x(t, m2) - 1
+  end-do
+  
+  
+  
+  
+  forall(t in TRATTE) COSTO_FIX(t) = sum(m in MEZZI) x(t,m) * COSTO_TRATTA(m, t)
+  forall(t in 1..3) COSTO_VAR(t) =  sum(m1, m2 in MEZZI) y(t, m1, m2) * COSTO_CAMBIO(m1, m2)
+  
+  minimise(sum(t in TRATTE)(COSTO_FIX(t) + COSTO_VAR(t+1)))
+  writeln("Costo totale ", getobjval)
+  
+  
+  !sum(t in TRATTE) x(t, 3) <= 4 * sum(t in TRATTE) x(t, 1)
+  
+
+  
+  forall(t in TRATTE) do
+    y(t, 3, 1) = 0
+    y(t, 1, 3) = 0
+  end-do
+  
+  minimise(sum(t in TRATTE)(COSTO_FIX(t) + COSTO_VAR(t)))
+  writeln("Costo totale ", getobjval)
+  
+  
+  writeln("End running model")
+end-model

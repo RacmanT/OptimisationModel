@@ -1,0 +1,116 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+!sample declarations section
+declarations
+  col = 1..18 !colori (certamente non pi�' di 18)
+  paesi = 1..18 ! paesi
+
+  INC: array(paesi,paesi) of integer    !matrice delle incompatibilita'
+
+  w: array(col) of mpvar ! utilizzo colore
+
+  x: array(paesi,col) of mpvar ! assegnazione colore al paese
+
+  vinc: linctr
+end-declarations
+
+INC::[0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+      1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+      1,1,0,1,0,1,1,1,1,0,0,0,0,0,1,0,0,0,
+      1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,
+      0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,
+      0,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,
+      0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,
+      0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+      0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,0,0,0,
+      0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,
+      0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,1,1,0,
+      0,0,1,1,0,0,0,0,1,0,0,0,0,1,0,1,0,0,
+      0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,
+      0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,
+      0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0]
+
+forall(j in col) w(j) is_binary
+
+forall(i in paesi, j in col) x(i,j) is_binary
+
+forall(i in paesi) sum(j in col) x(i,j) = 1
+
+forall(i,k in paesi | k>i, j in col) do
+   if INC(i,k) = 1 then
+     x(i,j) + x(k,j) <= w(j)
+   end-if
+end-do
+
+num_col := sum(j in col) w(j)
+
+minimize(num_col)
+
+writeln("num_col: ",getobjval)
+
+forall(i in paesi, j in col) do
+  if(getsol(x(i,j)) > 0) then
+    writeln("paese: ",i," colore: ",j)
+  end-if
+end-do
+
+writeln("******* formulazione per clique di dimensione massima ********")
+
+declarations
+   y: array(paesi) of mpvar
+end-declarations
+
+forall(i in paesi) y(i) is_binary
+
+forall(i,k in paesi | k>i) do
+   if INC(i,k) = 0 then
+     y(i) + y(k) <= 1
+   end-if
+end-do
+
+num_clique := sum(i in paesi) y(i)
+
+maximize(num_clique)
+
+writeln("num_clique: ",getobjval)
+
+forall(i in paesi) do
+ if(getsol(y(i)) > 0) then
+  writeln("paese: ",i)
+ end-if
+end-do
+
+writeln("************* prima soluzione alternativa *********")
+
+vinc := x(1,1) = 1
+
+minimize(num_col)
+
+writeln("num_col: ",getobjval)
+
+forall(i in paesi, j in col) do
+  if(getsol(x(i,j)) > 0) then
+    writeln("paese: ",i," colore: ",j)
+  end-if
+end-do
+
+writeln("************ seconda soluzione alternativa *******")
+
+sethidden(vinc,TRUE)
+x(1,3) = 1
+
+minimize(num_col)
+
+writeln("num_col: ",getobjval)
+
+forall(i in paesi, j in col) do
+  if(getsol(x(i,j)) > 0) then
+    writeln("paese: ",i," colore: ",j)
+  end-if
+end-do
+
+end-model

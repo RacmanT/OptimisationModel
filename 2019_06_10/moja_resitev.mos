@@ -1,0 +1,70 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+    STAZIONI = 1..4
+    ORE = 1..4
+    
+    CAPACITA = 10
+    
+    DOMANDA_NOLEGGIO : array(STAZIONI, ORE) of integer
+    DOMANDA_DEPOSITO : array(STAZIONI, ORE) of integer
+    
+    
+    ! quante bici ci sono in una stazione alla fine di una certa ora
+    x: array(STAZIONI, ORE) of mpvar
+
+    ! indica se all'ora o il furgone passa alla stazione s
+    y: array(STAZIONI, ORE) of mpvar
+
+    ! indicano quante bici vengono scaricate / caricate dal furgone
+    carico  : array(STAZIONI, ORE) of mpvar
+    scarico : array(STAZIONI, ORE) of mpvar
+    
+    z:array(STAZIONI, ORE) of mpvar
+    
+  end-declarations
+
+  writeln("Begin running model")
+  
+  forall(s in STAZIONI, o in ORE) do
+    x(s, o) is_integer
+    y(s, o) is_binary
+    carico(s, o) is_integer
+    scarico(s, o) is_integer
+  end-do
+
+  DOMANDA_NOLEGGIO :: [3, 8, 3, 6,
+                    	 2, 4, 1, 5,
+                    	 5, 7, 8, 3,
+                    	 3, 7, 4, 3]
+
+  DOMANDA_DEPOSITO :: [4, 6, 4, 1,
+                    	 2, 7, 3, 3,
+                    	 3, 5, 2, 6,
+                    	 8, 3, 1, 4]
+                    	 
+                    	 
+  forall(s in STAZIONI, o in ORE) carico(s,o) <=  10 * y(s,o)
+  forall(s in STAZIONI, o in ORE) scarico(s,o) <= 10 * y(s,o)
+  
+  
+  forall(s in STAZIONI, o in ORE) x(s,o) <=  10 
+  forall(s in STAZIONI, o in ORE) x(s,o) >=  0
+  
+  forall(o in ORE) sum(s in STAZIONI) y(s, o) = 1
+  
+  forall(s in STAZIONI, o in ORE) x(s,o-1) + DOMANDA_DEPOSITO(s,o) + scarico(s,o) - carico(s,o) - DOMANDA_NOLEGGIO(s,o) <= 10
+  
+  forall(s in STAZIONI, o in ORE) do
+  carico(s,o) - scarico(s,o) <= z(s,o)  
+  scarico(s,o) - carico(s,o) <= z(s,o)  
+
+  end-do
+  
+  minimise(sum(s in STAZIONI, o in ORE)z(s,o))
+
+  writeln("End running model")
+end-model

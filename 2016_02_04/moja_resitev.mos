@@ -1,0 +1,48 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  declarations
+      MESI = 1..12
+      MACCHINE = 1..2
+      
+      BOTTIGLIE_AL_MESE = 30
+      BOTTIGLIE_AL_GIORNO : array(MACCHINE) of real
+      
+      DOMANDA:array(MESI) of integer
+      GIORNI_LAVORATIVI:array(MESI) of integer
+      
+      x: array(MACCHINE, MESI) of mpvar
+      
+      y: array(MACCHINE, MESI) of mpvar
+    
+  end-declarations
+
+  writeln("Begin running model")
+    
+    forall(m1 in MACCHINE, m2 in MESI) do
+      x(m1, m2) is_binary
+      y(m1, m2) is_integer
+    end-do
+    
+    BOTTIGLIE_AL_GIORNO :: [30/15, 30/10]
+    DOMANDA           :: [30, 40, 35, 50, 45, 50, 30, 20, 40, 50, 45, 30]
+    GIORNI_LAVORATIVI :: [17, 21, 22, 20, 22, 21, 21, 22, 22, 21, 21, 15]
+    
+    forall(m1 in MACCHINE, m2 in MESI) y(m1, m2) * BOTTIGLIE_AL_GIORNO(m1) <= x(m1, m2) * BOTTIGLIE_AL_MESE
+    
+    forall(m2 in MESI) sum(m1 in MACCHINE) y(m1, m2) * BOTTIGLIE_AL_GIORNO(m1) >= DOMANDA(m2)
+    
+    forall(m1 in MACCHINE, m2 in MESI) y(m1, m2) <= GIORNI_LAVORATIVI(m2)
+    
+    forall(m1 in MACCHINE) sum(m2 in MESI) x(m1, m2) = 10
+    
+    x(1,7) + x(2, 7) <= 1
+    x(1,8) + x(2, 8) <= 1
+    
+    minimise(1)
+    
+    
+  writeln("End running model")
+end-model

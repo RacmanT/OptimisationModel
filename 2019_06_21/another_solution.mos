@@ -1,0 +1,90 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_NODI    = 8
+    NUMERO_MEZZI   = 3
+    NUMERO_CLIENTI = 7
+  end-parameters
+
+
+  declarations
+
+    NODI    = 1..NUMERO_NODI
+    MEZZI   = 1..NUMERO_MEZZI
+    CLIENTI = 1..NUMERO_CLIENTI
+
+    COORDINATA_X : array(NODI) of integer
+    COORDINATA_Y : array(NODI) of integer
+
+    COSTO_FISSO : array(MEZZI) of integer
+    COSTO_KM    : array(MEZZI) of real
+
+    DISTANZE     : array(NODI, NODI) of real
+
+    ! indica se il furgone f viene impiegato
+    x: array(MEZZI) of mpvar
+
+    ! indica in che ordine sono percorsi i nodi
+    ! y: array(1..NUMERO_NODI + 1) of mpvar
+    y: array(NODI, NODI, MEZZI) of mpvar
+    ! y(n, m) = 1 <=> n -> m
+    
+    level: array(CLIENTI) of mpvar
+
+    costo_fisso: mpvar
+    costo_variabile: mpvar
+
+  end-declarations
+
+  ! dominio variabili decisionali
+  forall(m in MEZZI)   x(m)    is_binary
+  forall(n1, n2 in NODI, m in MEZZI) y(n1, n2, m) is_binary
+  ! forall(n, m in NODI) y(n, m) is_binary
+
+  COORDINATA_X :: [0,3,5,12,10,-2,-12,-8]
+  COORDINATA_Y :: [0,-12,9,-8,4,17,5,-21]
+
+  COSTO_FISSO  :: [  20,   10,   28]
+  COSTO_KM     :: [0.16, 0.25, 0.09]
+
+  ! determiniamo le distanze tra i nodi
+  forall(n, m in NODI) DISTANZE(n, m) := sqrt((COORDINATA_X(n) - COORDINATA_X(m)) ^ 2 + (COORDINATA_Y(n) - COORDINATA_Y(m)) ^ 2)
+
+  ! viene impiegato uno ed un solo furgone
+  sum(m in MEZZI) x(m) = 1
+
+  ! tutti i nodi devono essere visitati. Partendo da un nodo si può visitare solo un altro nodo
+  forall(n in NODI, m in MEZZI) y(n, n, m) = 0
+  forall(n1 in NODI, m in MEZZI) sum(n2 in NODI) y(n1, n2, m) = x(m)
+  forall(n1 in NODI, m in MEZZI) sum(n2 in NODI) y(n2, n1, m) = x(m)
+
+  forall(n1, n2 in NODI, m in MEZZI) y(n1, n2, m) <= MAX_INT * x(m)
+
+  ! forall(m in MEZZI, i in NODI) do
+  ! 	sum(j in NODI | j <> i) y(i, j, m) = x(m)     ! ogni nodo ha un unico nodo che lo precede e un unico nodo che lo segue nel percorso del mezzo m, se m viene utilizzato
+  ! 	sum(j in NODI | j <> i) y(j, i, m) = x(m)
+  ! end-do
+
+  forall(i, j in CLIENTI, m in MEZZI) do
+	  level(i) - level(j) + NUMERO_CLIENTI * y(i,j,m) <= NUMERO_CLIENTI -1
+  end-do
+
+  ! costo totale
+  costo_fisso = sum(m in MEZZI) x(m) * COSTO_FISSO(m)
+  costo_variabile = sum(n1, n2 in NODI, m in MEZZI) y(n1, n2, m) * DISTANZE(n1, n2) * COSTO_KM(m)
+  ! costo_variabile = sum(m in MEZZI) (COSTO_KM(m) * sum(n1, n2 in NODI) y(n1, n2, m)* DISTANZE(n1, n2))
+
+  minimise(costo_variabile + costo_fisso)
+  writeln("Costo totale ", getobjval)
+  forall(n1 in NODI) do
+    forall(n2 in NODI) do
+    if(getsol(y(n1, n2, 2)) = 1) then
+      write("Il nodo ", n1, " visita il nodo ", n2)
+      end-if
+    end-do
+    writeln("")
+  end-do
+
+end-model

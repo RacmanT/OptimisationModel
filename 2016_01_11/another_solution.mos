@@ -1,0 +1,81 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_STAZIONI  = 10
+    NUMERO_FREQUENZE = 6
+  end-parameters
+
+  declarations
+
+    STAZIONI  = 1..NUMERO_STAZIONI
+    FREQUENZE = 1..NUMERO_FREQUENZE
+
+
+    A: array(STAZIONI, STAZIONI) of integer
+    
+    ! indica se una frequenza f è associata alla stazione s
+    x: array(STAZIONI, FREQUENZE) of mpvar
+    
+    ! quale frequenza è associata alla stazione s
+    y: array(STAZIONI) of mpvar
+
+  end-declarations
+
+  forall(s in STAZIONI) y(s) is_integer
+  forall(s in STAZIONI, f in FREQUENZE) x(s, f) is_binary
+
+  A ::  [0, 1, 0, 0, 0, 0, 0, 2, 0, 0,
+         1, 0, 2, 0, 2, 0, 0, 0, 0, 1,
+         0, 2, 0, 4, 0, 0, 0, 0, 0, 1,
+         0, 0, 4, 0, 2, 0, 0, 0, 0, 0,
+         0, 2, 0, 2, 0, 3, 0, 0, 0, 4,
+         0, 0, 0, 0, 3, 0, 1, 0, 0, 0,
+         0, 0, 0, 0, 0, 1, 0, 1, 0, 2,
+         2, 0, 0, 0, 0, 0, 1, 0, 2, 0,
+         0, 0, 0, 0, 0, 0, 0, 2, 0, 3,
+         0, 1, 1, 0, 4, 0, 2, 0, 3, 0]
+         
+  
+  ! ad ogni stazione è associata una ed una sola frequenza
+  forall(s in STAZIONI) sum(f in FREQUENZE) x(s, f) = 1
+  
+  ! leghiamo x a y
+  forall(s in STAZIONI) sum(f in FREQUENZE) x(s, f) * f = y(s)
+
+  declarations
+    ! se una stazione s ha una frequenza maggiore della frequenza dell'altra stazione
+    z: array(STAZIONI, STAZIONI) of mpvar
+    
+    ! se una certa frequenza viene utilizzata
+    w: array(FREQUENZE) of mpvar
+  end-declarations
+  
+  forall(f in FREQUENZE) w(f) is_binary
+  forall(s1, s2 in STAZIONI) z(s1, s2) is_binary
+  
+  forall(f in FREQUENZE) sum(s in STAZIONI) x(s, f) <= w(f) * NUMERO_STAZIONI
+
+  forall(f in FREQUENZE) sum(s in STAZIONI) x(s, f) >= w(f)
+  
+
+  forall(s1, s2 in STAZIONI) y(s1) - y(s2) >= A(s1, s2) - MAX_INT * (1 - z(s1, s2))
+  forall(s1, s2 in STAZIONI) y(s1) - y(s2) <= - A(s1, s2) + MAX_INT * z(s1, s2)
+  
+  ! forall(s1, s2 in STAZIONI) y(s1) - y(s2) >= A(s1, s2) * (1 - z(s1, s2))
+  ! forall(s1, s2 in STAZIONI) y(s1) - y(s2) <= - A(s1, s2)  * z(s1, s2)
+  
+  
+  
+  minimise(sum(f in FREQUENZE) w(f))
+  
+forall(i in STAZIONI, k in FREQUENZE) do
+  if getsol(x(i, k)) > 0 then
+  	writeln("x(", i, ", ", k, ") = ", getsol(x(i, k)))
+  end-if
+end-do
+
+writeln("Numero frequenze utilizzate ", getobjval)
+
+end-model

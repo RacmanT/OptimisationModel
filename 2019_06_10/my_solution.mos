@@ -1,0 +1,54 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUMERO_STAZIONI = 4
+    NUMERO_ORE = 4
+    DEPOSITO_MAX = 10
+    DEPOSITO_INIZIALE = 6
+  end-parameters
+
+  declarations
+  
+    ORE      = 1..NUMERO_ORE
+    STAZIONI = 1..NUMERO_STAZIONI
+
+    DOMANDA_NOLEGGIO : array(STAZIONI, ORE) of integer
+    DOMANDA_DEPOSITO : array(STAZIONI, ORE) of integer
+
+
+    ! quante bici ci sono in una stazione alla fine di una certa ora
+    x: array(STAZIONI, ORE) of mpvar
+
+    ! indica se all'ora o il furgone passa alla stazione s
+    y: array(STAZIONI, ORE) of mpvar
+
+    ! indicano quante bici vengono scaricate / caricate dal furgone
+    carico  : array(STAZIONI, ORE) of mpvar
+    scarico : array(STAZIONI, ORE) of mpvar
+  end-declarations
+  
+  
+  forall(s in STAZIONI, o in ORE)       x(s, o) is_integer
+  forall(s in STAZIONI, o in ORE)       y(s, o) is_binary
+  forall(s in STAZIONI, o in ORE)  carico(s, o) is_integer
+  forall(s in STAZIONI, o in ORE) scarico(s, o) is_integer
+
+  DOMANDA_NOLEGGIO ::   [3, 8, 3, 6,
+              	 2, 4, 1, 5,
+              	 5, 7, 8, 3,
+              	 3, 7, 4, 3]
+
+  DOMANDA_DEPOSITO::    [4, 6, 4, 1,
+              	 2, 7, 3, 3,
+              	 3, 5, 2, 6,
+              	 8, 3, 1, 4]
+              	 
+  forall(s in STAZIONI, o in ORE) do
+    x(s,t) = x(s,t-1) + carico(s, o) - scarico(s, o) +
+  end-do
+
+
+end-model

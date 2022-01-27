@@ -1,0 +1,83 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+
+declarations
+   oggetti=1..8
+   scatole=1..5
+   
+   peso: array(oggetti) of integer
+   valore: array(oggetti) of integer
+   
+   pesoMax: array(scatole) of integer
+      
+   capacitaTotale1=100
+   capacitaTotale2=80
+   
+   x: array(oggetti,scatole) of mpvar
+   y: array(scatole) of mpvar
+   
+   vincoloTutti:array(oggetti) of linctr
+   
+end-declarations
+
+peso::[10,15,17,7,9,13,4,20]
+valore::[6,20,15,7,12,17,8,14]
+
+pesoMax::[15,20,30,35,40]
+
+forall(i in oggetti, j in scatole) x(i,j) is_binary
+forall(j in scatole) y(j) is_binary
+
+numeroScatole:= sum(j in scatole) y(j)
+
+!rispetta capacit� scatole
+forall(j in scatole) sum(i in oggetti) x(i,j)*peso(i)<= pesoMax(j)*y(j)
+!carica tutti gli oggetti una e una sola volta
+forall(i in oggetti) vincoloTutti(i):=sum(j in scatole) x(i,j)=1
+!rispetta capacit� furgone
+!sum(j in scatole) pesoMax(j)*y(j)<=capacitaTotale1
+!rispetta capacit� furgone
+sum(i in oggetti,j in scatole) peso(i)*x(i,j)<=capacitaTotale1
+
+minimize(numeroScatole)
+
+writeln("I esercizio");
+writeln("Numero scatole acquistate: ", getobjval)
+write("Vengono acquistate le scatole ")
+forall(j in scatole) 
+if(getsol(y(j))=1) then write(j," ");end-if
+writeln;
+writeln("-----");
+forall(i in oggetti, j in scatole)
+if(getsol(x(i,j))=1) then writeln("l'oggetto ",i," viene inserito nella scatola ",j);end-if
+writeln("-----");
+
+
+valoreOggetti:= sum(i in oggetti, j in scatole) x(i,j)*valore(i)
+
+!disabilita vincoli di caricamento di tutti gli oggetti
+forall(i in oggetti) sethidden(vincoloTutti(i), true)
+
+!rispetta capacit� furgone
+!sum(j in scatole) pesoMax(j)*y(j)<=capacitaTotale2
+!rispetta capacit� furgone
+sum(i in oggetti,j in scatole) peso(i)*x(i,j)<=capacitaTotale2
+!carica gli oggetti in al pi� una scatola
+forall(i in oggetti) sum(j in scatole) x(i,j)<=1
+
+!maximize(valoreOggetti)!-numeroScatole)
+
+writeln("II esercizio")
+writeln("Numero scatole acquistate: ", getsol(numeroScatole))
+write("Vengono acquistate le scatole ")
+forall(j in scatole) 
+if(getsol(y(j))=1) then write(j," ");end-if
+writeln;
+writeln("-----");
+forall(i in oggetti, j in scatole)
+if(getsol(x(i,j))=1) then writeln("l'oggetto ",i," viene inserito nella scatola ",j);end-if
+writeln("-----");
+writeln("hey ", getobjval)
+
+end-model

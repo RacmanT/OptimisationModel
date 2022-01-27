@@ -1,0 +1,60 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_SQUADRE = 4
+
+  end-parameters
+
+declarations
+  SQUADRE = 1..NUMERO_SQUADRE
+
+  VITTORIE   : array(SQUADRE) of integer
+  DA_GIOCARE : array(SQUADRE) of integer
+  SCONTRI_DIRETTI: array(SQUADRE, SQUADRE) of integer
+
+  y: array(SQUADRE, SQUADRE) of mpvar
+
+
+  x: array(SQUADRE, SQUADRE) of mpvar
+
+  p: array(SQUADRE) of mpvar
+
+  z: array(SQUADRE) of mpvar
+
+
+end-declarations
+
+    forall(s1, s2 in SQUADRE) y(s1, s2) is_integer
+    forall(s1, s2 in SQUADRE) x(s1, s2) is_binary
+    forall(s in SQUADRE) z(s) is_integer
+    forall(s in SQUADRE) p(s) is_integer
+
+    VITTORIE    :: [83, 80, 78, 77]
+
+    DA_GIOCARE  :: [8, 3, 6, 3]
+
+    SCONTRI_DIRETTI :: [0, 1, 6, 1,
+                        1, 0, 0, 2,
+                        6, 0, 0, 0,
+                        1, 2, 0, 0]
+
+    forall(s in SQUADRE) y(s, s) = 0
+    forall(s1,s2 in SQUADRE) y(s1,s2) + y(s2,s1) = SCONTRI_DIRETTI(s1, s2)
+
+    forall(s in SQUADRE) z(s) = VITTORIE(s) + sum(s2 in SQUADRE) y(s, s2)
+
+    forall(s1,s2 in SQUADRE) z(s1) - z(s2) >= - MAX_INT * (1-x(s1,s2))
+    forall(s1,s2 in SQUADRE) z(s1) - z(s2) <= MAX_INT * x(s1,s2)
+
+    forall(s in SQUADRE) x(s, s) = 0
+    forall(s in SQUADRE) p(s) = 4 - sum(s2 in SQUADRE) x(s, s2)
+
+    forall(s in SQUADRE) do
+      minimise(p(s))
+      writeln("La squadra ", s, " puo arrivare al ", getobjval, " posto")
+    end-do
+
+
+end-model

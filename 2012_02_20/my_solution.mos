@@ -1,0 +1,70 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+
+    NUMBER_OF_FORESTS = 3
+    NUMBER_OF_YEARS   = 4
+    BIG_M             = 10000
+
+  end-parameters
+
+  declarations
+
+    FORESTS = 1..NUMBER_OF_FORESTS
+    YEARS   = 1..NUMBER_OF_YEARS
+
+    DEMAND  : array(YEARS)          of integer
+    A       : array(FORESTS, YEARS) of integer
+
+    ! quantità di legna tagliata all'anno
+    x: array(YEARS, FORESTS) of mpvar
+
+    ! quantità di legna non venduta in un certo anno
+    z: array(YEARS) of mpvar
+    
+    ! costo totale in questi tre anni
+    total_cost: mpvar
+
+  end-declarations
+
+  forall (y in YEARS) do
+    z(y) is_continuous
+    forall (f in FORESTS) x(y, f) is_continuous
+  end-do
+
+  A       ::  [10, 12,  7, 16,
+                4,  2, 10,  9,
+                6,  8, 11,  5]
+
+  DEMAND  ::  [16, 23, 26, 25]
+
+  ! la domanda deve essere sempre soddisfatta, ovvero deve esserci sempre una quantità di legna residua non negativa
+  forall (y in YEARS) z(y) >= 0
+
+  ! la quantità di legna rimasta è pari a quella che si è prodotta meno quella venduta per soddisfare la domanda
+  !forall (y in YEARS) sum(f in FORESTS) x(y, f) - DEMAND(y) = z(y)
+  sum(f in FORESTS) x(1, f) - DEMAND(1)                      = z(1)
+  sum(f in FORESTS) x(2, f) - DEMAND(2) + z(1)               = z(2)
+  sum(f in FORESTS) x(3, f) - DEMAND(3) + z(1) + z(2)        = z(3)
+  sum(f in FORESTS) x(4, f) - DEMAND(4) + z(1) + z(2) + z(3) = z(4)
+
+  ! non è possibile tagliare più legna da una foresta di quanto questa possa offrire
+  forall(y in YEARS, f in FORESTS) x(y, f) <= A(f, y)
+  
+  ! funzione obiettivo
+  total_cost = sum (y in YEARS) z(y)
+
+  minimise(total_cost)
+  writeln("Begin running model")
+
+  writeln("The objective function has value ", getobjval) 
+  
+  forall (y in YEARS) write("Value z(", y, ") is ", getsol(z(y)), "\n")
+
+  forall (y in YEARS, f in FORESTS) writeln("x(", y,",", f, ") = ", getsol(x(y, f)))  
+
+  writeln("End running model")
+
+end-model

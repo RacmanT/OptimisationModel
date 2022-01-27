@@ -1,0 +1,50 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+  parameters
+    NUMERO_MESI       = 12
+    NUMERO_MACCHINE   = 2
+    BOTTIGLIE_AL_MESE = 30
+    GIORNI_LAVORATIVI_MACCHINA_1 = 15 ! in giorni
+    GIORNI_LAVORATIVI_MACCHINA_2 = 10 ! in giorni
+  end-parameters
+
+  declarations
+
+    MESI     = 1..NUMERO_MESI
+    MACCHINE = 1..NUMERO_MACCHINE
+
+    DOMANDA           : array(MESI) of integer
+    GIORNI_LAVORATIVI : array(MESI) of integer
+
+    BOTTIGLIE_AL_GIORNO : array(MACCHINE) of integer
+  
+    x : array(MACCHINE, MESI) of mpvar
+    y: array(MACCHINE, MESI) of mpvar
+
+  end-declarations
+
+  forall(m1 in MACCHINE, m2 in MESI) do
+    x(m1,m2) is_binary
+    y(m1,m2) is_integer
+  end-do
+
+  DOMANDA           :: [30, 40, 35, 50, 45, 50, 30, 20, 40, 50, 45, 30]
+  GIORNI_LAVORATIVI :: [17, 21, 22, 20, 22, 21, 21, 22, 22, 21, 21, 15]
+
+  BOTTIGLIE_AL_GIORNO :: [2, 3]
+  
+  forall(m1 in MACCHINE, m2 in MESI) y(m1, m2) * BOTTIGLIE_AL_GIORNO(m1) <= BOTTIGLIE_AL_MESE * x(m1)
+  forall(m1 in MACCHINE, m2 in MESI) y(m1, m2) <= GIORNI_LAVORATIVI(m2)
+  forall(m2 in MESI) sum(m1 in MACCHINE) y(m1,m2) * BOTTIGLIE_AL_GIORNO >= DOMANDA(m2)
+  
+  forall(m1 in MACCHINE) sum(m2 in MESI) x(m1, m2) = NUMERO_MESI - 2
+  forall(m1,m2 in MACCHINE) do
+    x(m1,7) + x(m2,7) <= 1
+    x(m1,8) + x(m2,8) <= 1
+  end-do
+  
+  
+  minimise(sum(m1 in MACCHINE, m2 in MESI) y(m1,m2))
+end-model

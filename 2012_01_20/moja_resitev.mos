@@ -1,0 +1,82 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+    NUM_MINERALI = 6
+
+  end-parameters
+
+  declarations
+
+    MINERALI = 1..NUM_MINERALI
+    CONTENITORI = 1..NUM_MINERALI
+
+    QUANTITA : array(MINERALI) of integer
+    PROFITTO : array(MINERALI) of integer
+
+
+    x : array(CONTENITORI) of mpvar
+
+    y : array(MINERALI, CONTENITORI) of mpvar
+
+
+  end-declarations
+
+  writeln("Begin running model")
+
+  QUANTITA :: [20, 45, 30, 30, 50, 25]
+  PROFITTO :: [ 6,  3,  4,  5,  2,  7]
+
+
+    forall(c in CONTENITORI) x(c) is_binary
+    forall(m in MINERALI, c in CONTENITORI) y(m, c) is_binary
+
+
+    forall(m in MINERALI, c in CONTENITORI) y(m, c) <= x(c)
+    
+    forall(m in MINERALI) sum(c in CONTENITORI) y(m, c) >= 1
+
+    
+    forall(c in CONTENITORI) sum(m in MINERALI) y(m, c) * QUANTITA(m) <= MAX_INT * x(c)
+
+    forall(c in CONTENITORI) do
+      y(1, c) + y(2, c) <= 1
+      y(1, c) + y(5, c) <= 1
+      y(2, c) + y(3, c) <= 1
+      y(3, c) + y(4, c) <= 1
+      y(3, c) + y(6, c) <= 1
+      y(4, c) + y(5, c) <= 1
+    end-do
+
+    minimise(sum(c in CONTENITORI) x(c))
+    writeln("Numero minimo di scomparti ", getobjval)
+    
+    
+    writeln("--------------------- PARTE 2 ---------------------")
+
+    declarations
+      NUM_SCOMPARTI = 4 * 3
+      CAPACITA = 45 / 3
+      
+      SCOMPARTI = 1..NUM_SCOMPARTI
+      
+      z, w : array(MINERALI, SCOMPARTI) of mpvar
+      
+    end-declarations
+  
+    forall(m in MINERALI, s in SCOMPARTI) z(m, s) is_binary
+    forall(m in MINERALI, s in SCOMPARTI) w(m, s) is_integer
+
+    forall(s in SCOMPARTI, m1, m2 in MINERALI | m1 > m2) z(m1, s) + z(m2, s) <= 1
+    
+    
+    forall(s in SCOMPARTI, m in MINERALI)    w(m, s) <= 45 / 3 * z(m, s)
+    forall(m in MINERALI) sum(s in SCOMPARTI) w(m, s) <= QUANTITA(m) 
+    
+    maximise(sum(s in SCOMPARTI, m in MINERALI) w(m, s) * PROFITTO(m))
+    writeln("Profitto ", getobjval)
+
+  writeln("End running model")
+end-model

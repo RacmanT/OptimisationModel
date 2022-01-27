@@ -1,0 +1,71 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+
+!sample declarations section
+declarations
+
+  OLD = 1..7
+  NEW = 1..15
+
+
+  D: array(OLD,NEW) of real
+  W: array(OLD) of integer
+
+  xo,yo: array(OLD) of integer
+  xn,yn: array(NEW) of integer
+
+
+  x: array(OLD,NEW) of mpvar
+  y: array(NEW) of mpvar
+end-declarations
+
+! calcolo le coordinate di ogni cella
+
+xo::[2, 2,  2, 9, 9,  9,  9]
+yo::[5, 9, 13, 3, 7, 11, 15]
+
+forall(j in NEW) do
+	xn(j) := 5
+	yn(j) := j+1
+end-do
+
+!calcolo la distanza
+
+forall(i in OLD,j in NEW) D(i,j) := sqrt((xo(i)-xn(j))^2 + (yo(i)-yn(j))^2)
+
+W::[10,7,8,12,3,6,11]
+
+!vincoli
+
+forall(j in NEW) y(j) is_binary
+
+forall(i in OLD) sum(j in NEW) x(i,j) = W(i)
+
+forall(j in NEW) sum(i in OLD) x(i,j) <= 1000*y(j)  !1000=bigM
+
+sum(j in NEW) y(j) = 4
+
+cost := sum(i in OLD, j in NEW) D(i,j)*x(i,j)
+
+minimize(cost)
+writeln(getobjval)
+
+forall(n in NEW) do
+  if getsol(y(n)) <> 0 then
+    write(n, " ")
+  end-if
+end-do
+
+writeln("")
+
+forall (o in OLD) do
+  forall(n in NEW) do
+    if getsol(x(o, n)) <> 0 then
+      write("x(", o, ", ",  n, ") = ", getsol(x(o, n)), "\t")
+    end-if
+  end-do
+  writeln("")
+end-do
+
+end-model

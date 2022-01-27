@@ -1,0 +1,35 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+  
+  
+  parameters
+    NUMERO_BOSCHI = 3
+    NUMERO_ANNI = 4
+  end-parameters
+
+  declarations
+    
+    BOSCHI = 1..NUM_BOSCHI
+    ANNI = 1..NUM_ANNI
+    
+    A       : array(BOSCHI, ANNI) of integer
+    DOMANDA : array(ANNI) of integer
+    
+    z()
+    
+    
+    Objective:linctr
+  end-declarations
+
+  writeln("Begin running model")
+  
+  A :: [10, 12, 7, 16,
+        4, 2, 10, 9,
+        6, 8, 11, 5]
+        
+  DOMANDA :: [16, 23, 26, 25]
+  
+  writeln("End running model")
+end-model

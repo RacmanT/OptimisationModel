@@ -1,0 +1,42 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+!optional parameters section
+
+
+!sample declarations section
+declarations
+  I = 1..15
+  J = 1..15
+  
+  L: array(I) of integer
+  A: array(I) of integer
+  
+  W = 26
+  
+  x: array(I,J) of mpvar 
+  h: array(J) of mpvar 
+  !Objective:linctr
+end-declarations
+
+! setparam("XPRS_VERBOSE", true)
+! setparam("XPRS_MAXTIME”, 120)
+
+L::[10,22,20,5,8,7,15,11,9,10,7,9,12,5,6]
+A::[2,10,10,10,8,12,18,9,15,13,8,7,7,10,5]
+
+forall(i in I, j in J) x(i,j) is_binary 
+
+forall(i in I) sum(j in J) x(i,j) = 1
+
+forall(i in I,j in J) h(j) >= A(i)*x(i,j)
+
+forall(j in J) sum(i in I) L(i)*x(i,j) <= W
+
+altezza:=sum(j in J) h(j)
+
+minimize(altezza)
+writeln("[Me]: ", getobjval) 
+forall(j in J) writeln(getsol(h(j)))
+ 
+end-model

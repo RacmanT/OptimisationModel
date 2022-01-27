@@ -1,0 +1,54 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+  ! uses "mminsight" ! uncomment this line for an Xpress Insight model
+
+  parameters
+
+    NUMBER_OF_COSTUMERS = 7
+    NUMBER_OF_NODES     = 8
+    NUMBER_OF_VEHICLES = 3
+
+  end-parameters
+
+
+  declarations
+
+    VEICOLI  = 1..NUMBER_OF_VEHICLES
+    CLIENTI = 1..NUMBER_OF_COSTUMERS
+    NODI     = 1..NUMBER_OF_NODES
+
+    COSTI_FISSO  : array(VEICOLI)     of integer
+    COSTO_VARIABILE   : array(VEICOLI)     of real
+    COORDINATA_X      : array(NODI)        of integer
+    COORDINATA_Y      : array(NODI)        of integer
+    DISTANZA         : array(NODI, NODI) of real
+
+  y: array(NODI, NODI, VEICOLI) of mpvar
+  z: array(VEICOLI) of mpvar
+  
+
+  end-declarations
+  
+  forall(n,m in NODI, v in VEICOLI) y(n, m, v) is_binary
+  forall(v in VEICOLI) z(v) is_binary
+
+
+  COSTI_FISSO  :: [  20,   10,   28]
+  COSTO_VARIABILE   :: [0.16, 0.25, 0.09]
+  COORDINATA_X      :: [0, 3, 5, 12, 10, -2, -12, -8]
+  COORDINATA_Y      :: [0, -12, 9, -8, 4, 17, 5, -21]
+
+  forall(n1,n2 in NODI) do
+  DISTANZA(n1,n2) := sqrt((COORDINATA_Y(n2) - COORDINATA_Y(n1))^2 + (COORDINATA_X(n2)-COORDINATA_X(n1))^2)
+  end-do
+  
+  forall(n in NODI, c in CLIENTI) sum(v in VEICOLI) y(n, c, v) = 1
+  forall(n1,n2 in NODI) sum(v in VEICOLI) y(n1, n2, v) = 1
+  forall(v in VEICOLI) do
+    sum(n in NODI,c in CLIENTI) y(n, c, v) <= z(v) * NUMBER_OF_COSTUMERS
+  end-do  
+  
+  minimize(sum(v in VEICOLI)(COSTI_FISSO(v) * z(v) + sum(n,m in NODI)y(n, m, v) * DISTANZA(n, m) * COSTO_VARIABILE(v)))
+  write(getobjval)
+end-model

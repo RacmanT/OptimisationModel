@@ -1,0 +1,141 @@
+!@encoding CP1252
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+forward procedure printSolution
+
+!sample declarations section
+declarations
+	S = 1..4  ! stazioni
+	H = 1..4  ! ore
+	H5 = 1..5 ! considero anche l'ora successiva all'ultima considerata
+
+	DR: array(S,H) of integer ! domanda di raccolta bici nella stazione s nell'ora h
+	DD: array(S,H) of integer ! domanda di deposito bici nella stazione s nell'ora h
+  	M: integer                ! numero di bici in ogni stazione ad inizio giornata
+  	Q: integer                ! capacità massima di bici per stazione
+  	N: integer                ! numero iniziale di bici nel furgone
+  	C: integer                ! capacità del furgone
+
+  	m: array(S,H) of mpvar	   ! numero di bici presenti nella stazione s all'inizio dell'ora h
+  	x: array(S,H) of mpvar	   ! 1 se il furgone opera nella stazione s nell'ora h, 0 altrimenti
+  	yUp: array(S,H) of mpvar   ! numero di bici caricate sul furgone dalla stazione s nell'ora h
+  	yDown: array(S,H) of mpvar ! numero di bici scaricate dal furgone nella stazione s nell'ora h
+  	n: array(H5) of mpvar	   ! numero di bici presenti nel furgone all'inizio dell'ora h
+end-declarations
+
+DR::[3,8,3,6,
+	 2,4,1,5,
+	 5,7,8,3,
+	 3,7,4,3]
+
+DD::[4,6,4,1,
+	 2,7,3,3,
+	 3,5,2,6,
+	 8,3,1,4]
+
+M :=  6
+Q := 10
+N :=  1
+C :=  4
+
+forall(s in S, h in H) do
+	m(s,h) is_integer
+	x(s,h) is_binary
+	yUp(s,h) is_integer
+	yDown(s,h) is_integer
+end-do
+
+forall(s in S) m(s,1) = M   			! numero di bici ad inizio giornata per ogni stazione
+
+forall(h in H) sum(s in S) x(s,h) <= 1	! il furgone può operare al più su una sola stazione per ora
+
+! siccome ogni stazione non può contenere più di dieci bici contemporaneamente, allora possono essere scaricate/caricate
+! al più dieci bici. Si deve tenere conto che il furgone per carica e scaricare da una stazione in una certa ora deve essere
+! presente
+forall(s in S, h in H) do
+	yUp(s,h) <= x(s,h)*Q
+	yDown(s,h) <= x(s,h)*Q
+end-do
+
+forall(s in S, h in H) do
+	! il numero di bici alla fine dell'ora h è dato dal numero delle biciclette
+	! presenti all'inizio dell'ora + il numero di bici scaricate dal furgone (negativo se caricate)
+	! - il numero di bici raccolte + il numero di bici depositate
+	m(s,h) - yUp(s,h) + yDown(s,h) - DR(s,h) + DD(s,h) >= 0 !il numero di bici alla fine dell'ora h non deve essere negativo o superiore alla capacità della stazione
+	m(s,h) - yUp(s,h) + yDown(s,h) - DR(s,h) + DD(s,h) <= Q
+end-do
+
+forall(s in S, h in 2..4) do
+	! determina il numero di bici presenti nella stazione s all'inizio dell'ora, nelle ore seguenti alla prima
+	m(s,h) = m(s,h-1) - yUp(s,h-1) + yDown(s,h-1)  - DR(s,h-1) + DD(s,h-1)
+end-do
+
+(!forall(h in H5) do
+	n(h) is_integer
+end-do
+
+n(1) = N  ! numero di bici nel furgone a inizio giornata
+
+forall(h in 2..5) do
+	n(h) >= 0
+	n(h) <= C  ! vincoli di capacit� del furgone all'inizio dell'ora h
+	n(h) = n(h-1) + sum(s in S)(yUp(s,h-1)-yDown(s,h-1)) !determina il numero di bici presenti nel furgone all'inizio dell'ora, nelle ore seguenti alla prima
+end-do
+!)
+operazioniTot:= sum(s in S, h in H) (yUp(s,h) + yDown(s,h))
+
+
+writeln("Begin running model first model\n\n")
+
+minimize(operazioniTot)
+
+printSolution
+
+writeln("\n\nEnd running first model")
+(!writeln("Begin running model second model\n\n")
+
+
+forall(s in S, h in H) do
+	m(s,h) - yUp(s,h) + yDown(s,h) <= Q ! vincoli di capacit� della stazione s dopo l'operazione di carico/scarico del furgone nell'ora h
+	m(s,h) - yUp(s,h) + yDown(s,h) >= DR(s,h) !il numero di bici dopo l'operazione di carico/scarico del furgone deve essere in grado di soddisfare la domanda di raccolta nell'ora h
+	Q - (m(s,h) - yUp(s,h) + yDown(s,h) - DR(s,h)) >= DD(s,h) !il numero di posti liberi nella stazione s dopo l'operazione di raccolta deve permettere di soddisfare la domanda di deposito nell'ora h
+	yUp(s,h) <= x(s,h)*Q
+	yDown(s,h) <= x(s,h)*Q ! se il furgone non opera nella stazione s nell'ora h non pu� caricare/scaricare bici
+end-do
+!)
+
+forall(h in H5) do
+	n(h) is_integer
+end-do
+
+n(1) = N  ! numero di bici nel furgone a inizio giornata
+
+forall(h in 2..5) do
+	n(h) >= 0
+	n(h) <= C  ! vincoli di capacit� del furgone all'inizio dell'ora h
+	n(h) = n(h-1) + sum(s in S)(yUp(s,h-1)-yDown(s,h-1)) !determina il numero di bici presenti nel furgone all'inizio dell'ora, nelle ore seguenti alla prima
+end-do
+
+
+
+minimize(operazioniTot)
+
+printSolution
+
+writeln("\n\nEnd running second model")
+
+procedure printSolution
+	writeln("numero totale operazioni: " + getobjval)
+	writeln("\th1\th2\th3\th4")
+	forall(s in S) do
+	    write("s"+s+"\t")
+		forall(h in H) write("" + getsol(m(s,h)) +if(getsol(yDown(s,h)+yUp(s,h))>0, "(" + getsol(yDown(s,h) -yUp(s,h)) +")","" )+ "\t")
+		write("\n")
+	end-do
+	write("f\t")
+	forall(h in H) write("" + getsol(n(h))+ "\t")
+	write("\n")
+end-procedure
+
+end-model

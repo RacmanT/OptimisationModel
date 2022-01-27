@@ -1,0 +1,51 @@
+model ModelName
+  options noimplicit
+  uses "mmxprs"
+
+
+  parameters
+    NUMERO_CAMION = 4
+    NUMERO_CANTIERI = 3
+  end-parameters
+
+  declarations
+
+    CAMION = 1..NUMERO_CAMION
+    CANTIERI = 1..NUMERO_CANTIERI
+
+    TONDINI_OFFERTA   : array(CANTIERI) of integer
+    TONDINI_RICHIESTA : array(CANTIERI) of integer
+
+    COSTO_NOLEGGIO_CAMION : array(CAMION) of integer
+
+    A : array(CANTIERI, CANTIERI) of integer
+
+    x: array(CAMION) of mpvar
+    y: array(CAMION, CANTIERI, CANTIERI) of mpvar
+    z: mpvar
+
+  end-declarations
+  
+  forall(c in CAMION) x(c) is_binary
+  forall(c in CAMION, c2,c3 in CANTIERI) y(c,c2,c3) is_integer
+  z is_binary
+  
+  
+  TONDINI_OFFERTA   :: [7000, 6000, 4000]
+  TONDINI_RICHIESTA :: [8000, 5000, 4000]
+
+  A :: [9, 6, 5,
+        7, 4, 9,
+        4, 6, 3]
+
+  COSTO_NOLEGGIO_CAMION :: [50, 50, 50, 50]
+  
+  forall(c in CANTIERI) sum(c2 in CAMION, c3 in CANTIERI) y(c2, c, c3) <= TONDINI_OFFERTA(c)
+  forall(c in CANTIERI) sum(c2 in CAMION, c3 in CANTIERI) y(c2, c3, c) <= TONDINI_RICHIESTA(c)
+  
+  forall(c in CAMION) y(c, 1, 2) + y(c, 2, 2) <= 1
+  
+  
+  
+
+end-model

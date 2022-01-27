@@ -1,0 +1,74 @@
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+parameters
+	CAP = 45
+end-parameters
+
+! I parte: trovare il numero cromatico
+!sample declarations section
+declarations
+  minerali = 1..6
+  scomparti = 1..6  !certamente non ne servono pi� di tanti quanti sono i minerali
+  y: array(scomparti) of mpvar
+  x: array(scomparti,minerali)of mpvar
+end-declarations
+
+writeln("Begin running model")
+
+forall(c in scomparti,i in minerali) x(c,i) is_binary
+forall(c in scomparti) y(c) is_binary
+
+mincol := sum(c in scomparti) y(c)
+
+forall (i in minerali) sum(c in scomparti) x(c,i) = 1
+
+forall(c in scomparti) do
+	x(c,1) + x(c,2) <= y(c)
+	x(c,1) + x(c,5) <= y(c)
+	x(c,2) + x(c,3) <= y(c)
+	x(c,3) + x(c,4) <= y(c)
+	x(c,3) + x(c,6) <= y(c)
+	x(c,4) + x(c,5) <= y(c)
+end-do
+
+minimize(mincol)
+writeln("Numero di scatole utilizzate ", getobjval)
+
+! II parte: decidere quanto trasportare per ogni di materiale
+NMin := floor(getobjval) !rendo il valore un intero
+
+declarations
+	NumScomp = 1..NMin
+	NumBin = 1..4
+
+	Disp: array(minerali) of integer ! disponibilit� del materiale
+  	Rev: array(minerali) of integer !ricavo per unit� di materiale
+
+  	w: array(minerali) of mpvar !quantit� di materiale trasportata
+  	z: array(NumScomp,NumBin,minerali) of mpvar !in quale scomparto di quale bin metto materiale di tipo k
+
+end-declarations
+
+Disp::[20, 45, 30, 30, 50, 25]
+Rev::[6, 3, 4, 5, 2, 7]
+
+forall(i in NumScomp, j in NumBin, k in minerali) z(i,j,k) is_binary
+
+maxrev := sum(k in minerali) Rev(k)*w(k)
+
+forall(k in minerali) w(k) <= Disp(k)
+forall(i in NumScomp, j in NumBin) sum(k in minerali) z(i,j,k) <= 1
+
+forall(k in minerali) w(k) <= (CAP/NMin)*sum(i in NumScomp, j in NumBin) z(i,j,k)
+
+maximize(maxrev)
+writeln(getobjval)
+
+writeln("End running model")
+
+
+!NB sono possibili diverse formulazioni sia del problema 1 che del problema 2.
+!Questa qui presentata � solo uno dei possibili modi di formalizzare questi problemi
+
+end-model
